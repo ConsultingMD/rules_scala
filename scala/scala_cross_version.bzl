@@ -57,7 +57,7 @@ def new_scala_default_repository(
         scala_version,
         scala_version_jar_shas,
         maven_servers,
-        fetch_sources=False):
+        fetch_sources):
     _scala_maven_import_external(
         name = "io_bazel_rules_scala_scala_library",
         artifact = "org.scala-lang:scala-library:{}".format(scala_version),
