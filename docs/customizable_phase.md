@@ -128,22 +128,25 @@ Currently phase architecture is used by 7 rules:
  - scala_junit_test
  - scala_repl
 
-In each of the rule implementation, it calls `run_phases` and returns the information from `phase_final`, which groups the final returns of the rule. To prevent consumers from accidently removing `phase_final` from the list, we make it a non-customizable phase.
+If you need to expose providers to downstream targets you need to return a dict of providers (provider-name to provider instance) from your phase under the `external_providers` attribute.
+
+If you need to override a provider returned by a previous phase you can adjust your phase to be after it and return the same key from your phase and it will override it.
+Note you probably have a good reason to override since you're meddling with the public return value of a different phase.
+
+In each of the rule implementations, it calls `run_phases` and returns the accumulated values of the `external_providers` dict declared by the phases.
 
 To make a new phase, you have to define a new `phase_<PHASE_NAME>.bzl` in `scala/private/phases/`. Function definition should have 2 arguments, `ctx` and `p`. You may expose the information for later phases by returning a `struct`. In some phases, there are multiple phase functions since different rules may take slightly different input arguemnts. You may want to re-expose the phase definition in `scala/private/phases/phases.bzl`, so it's more convenient to access in rule files.
 
 In the rule implementations, put your new phase in `builtin_customizable_phases` list. The phases are executed sequentially, the order matters if the new phase depends on previous phases.
-
-If you are making new return fields of the rule, remember to modify `phase_final`.
 
 ### Phase naming convention
 Files in `scala/private/phases/`
  - `phase_<PHASE_NAME>.bzl`: phase definition file
 
 Function names in `phase_<PHASE_NAME>.bzl`
- - `phase_<RULE_NAME>_<PHASE_NAME>`: function with custom inputs of specific rule
- - `phase_common_<PHASE_NAME>`: function without custom inputs
- - `_phase_default_<PHASE_NAME>`: private function that takes `_args` for custom inputs
+ - `phase_<PHASE_NAME>_<RULE_NAME>`: function with custom inputs of specific rule
+ - `phase_<PHASE_NAME>_common`: function without custom inputs
+ - `_phase_<PHASE_NAME>_default`: private function that takes `_args` for custom inputs
  - `_phase_<PHASE_NAME>`: private function with the actual logic
 
 See `phase_compile.bzl` for example.

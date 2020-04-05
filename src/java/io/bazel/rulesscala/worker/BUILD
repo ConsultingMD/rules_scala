@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 java_library(
     name = "worker",
     srcs = [
@@ -6,6 +8,6 @@ java_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//src/java/com/google/devtools/build/lib:worker",
+        "//third_party/bazel/src/main/protobuf:worker_protocol_java_proto",
     ],
 )

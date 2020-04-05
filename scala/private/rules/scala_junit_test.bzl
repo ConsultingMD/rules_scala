@@ -11,17 +11,18 @@ load("@io_bazel_rules_scala//scala/private:common_outputs.bzl", "common_outputs"
 load(
     "@io_bazel_rules_scala//scala/private:phases/phases.bzl",
     "extras_phases",
-    "phase_binary_final",
-    "phase_common_java_wrapper",
-    "phase_common_runfiles",
+    "phase_collect_jars_junit_test",
+    "phase_compile_junit_test",
+    "phase_coverage_common",
     "phase_declare_executable",
-    "phase_junit_test_collect_jars",
-    "phase_junit_test_compile",
-    "phase_junit_test_write_executable",
+    "phase_default_info",
+    "phase_dependency_common",
+    "phase_java_wrapper_common",
     "phase_jvm_flags",
     "phase_merge_jars",
+    "phase_runfiles_common",
     "phase_scalac_provider",
-    "phase_unused_deps_checker",
+    "phase_write_executable_junit_test",
     "phase_write_manifest",
     "run_phases",
 )
@@ -37,20 +38,20 @@ def _scala_junit_test_impl(ctx):
         [
             ("scalac_provider", phase_scalac_provider),
             ("write_manifest", phase_write_manifest),
-            ("unused_deps_checker", phase_unused_deps_checker),
-            ("collect_jars", phase_junit_test_collect_jars),
-            ("java_wrapper", phase_common_java_wrapper),
+            ("dependency", phase_dependency_common),
+            ("collect_jars", phase_collect_jars_junit_test),
+            ("java_wrapper", phase_java_wrapper_common),
             ("declare_executable", phase_declare_executable),
             # no need to build an ijar for an executable
-            ("compile", phase_junit_test_compile),
+            ("compile", phase_compile_junit_test),
+            ("coverage", phase_coverage_common),
             ("merge_jars", phase_merge_jars),
-            ("runfiles", phase_common_runfiles),
+            ("runfiles", phase_runfiles_common),
             ("jvm_flags", phase_jvm_flags),
-            ("write_executable", phase_junit_test_write_executable),
+            ("write_executable", phase_write_executable_junit_test),
+            ("default_info", phase_default_info),
         ],
-        # fixed phase
-        ("final", phase_binary_final),
-    ).final
+    )
 
 _scala_junit_test_attrs = {
     "prefixes": attr.string_list(default = []),

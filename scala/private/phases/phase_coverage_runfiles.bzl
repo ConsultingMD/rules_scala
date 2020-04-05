@@ -14,7 +14,7 @@ def phase_coverage_runfiles(ctx, p):
     if ctx.configuration.coverage_enabled and _coverage_replacements_provider.is_enabled(ctx):
         coverage_replacements = _coverage_replacements_provider.from_ctx(
             ctx,
-            base = p.compile.coverage.replacements,
+            base = p.coverage.replacements,
         ).replacements
 
         rjars = depset([
@@ -24,5 +24,6 @@ def phase_coverage_runfiles(ctx, p):
         coverage_runfiles = ctx.files._jacocorunner + ctx.files._lcov_merger + coverage_replacements.values()
     return struct(
         coverage_runfiles = coverage_runfiles,
+        runfiles = depset(coverage_runfiles),
         rjars = rjars,
     )

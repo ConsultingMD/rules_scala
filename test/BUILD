@@ -1,3 +1,6 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_java//java:defs.bzl", "java_binary", "java_import", "java_library")
+
 package(default_testonly = 1)
 
 load(
@@ -303,6 +306,38 @@ sh_test(
     data = ["MixJavaScalaLibTestOutputs"],
 )
 
+scala_binary(
+    name = "MixJavaScalaBinary",
+    srcs = ["src/main/scala/scalarules/test/MixJavaScalaLibBinary.scala"] + glob([
+        "src/main/scala/scalarules/test/mix_java_scala/*.scala",
+    ]) + glob([
+        "src/main/scala/scalarules/test/mix_java_scala/*.java",
+    ]),
+    main_class = "scalarules.test.JavaBinary",
+)
+
+scala_test(
+    name = "MixJavaScalaScalaTest",
+    size = "small",
+    srcs = [
+        "HelloLibTest.scala",
+        "OtherJavaLib.java",
+    ],
+    deps = [
+        ":HelloLib",
+    ],
+)
+
+scala_junit_test(
+    name = "MixJavaScalaJunitTest",
+    size = "small",
+    srcs = [
+        "OtherJavaLib.java",
+        "src/main/scala/scalarules/test/junit/HelloWorldJunitTest.scala",
+    ],
+    suffixes = ["Test"],
+)
+
 #needed to test java sources are compiled
 scala_binary(
     name = "MixJavaScalaLibBinary",
@@ -469,8 +504,8 @@ scala_specs2_junit_test(
     name = "data_location_expansion",
     size = "small",
     srcs = ["src/main/scala/scalarules/test/location_expansion/LocationExpansionTest.scala"],
-    data = ["//src/java/com/google/devtools/build/lib:worker"],
-    jvm_flags = ["-Dlocation.expanded=$(location //src/java/com/google/devtools/build/lib:worker)"],
+    data = ["//third_party/bazel/src/main/protobuf:worker_protocol_java_proto"],
+    jvm_flags = ["-Dlocation.expanded='$(locations //third_party/bazel/src/main/protobuf:worker_protocol_java_proto)'"],
     suffixes = ["Test"],
 )
 
@@ -719,4 +754,16 @@ scala_junit_test(
     suffixes = ["Test"],
     tests_from = [":JunitMixedSeparateTarget"],
     runtime_deps = [":JunitMixedSeparateTarget"],
+)
+
+py_binary(
+    name = "py_resource_binary",
+    srcs = ["py_resource.py"],
+    main = "py_resource.py",
+)
+
+scala_test(
+    name = "ScalaTestResourcesFromLocalTargetTest",
+    srcs = ["ScalaTestResourcesFromLocalTargetTest.scala"],
+    resources = [":py_resource_binary"],
 )

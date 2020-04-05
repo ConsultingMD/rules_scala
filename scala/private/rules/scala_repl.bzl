@@ -12,16 +12,17 @@ load("@io_bazel_rules_scala//scala/private:common_outputs.bzl", "common_outputs"
 load(
     "@io_bazel_rules_scala//scala/private:phases/phases.bzl",
     "extras_phases",
-    "phase_binary_final",
-    "phase_common_runfiles",
+    "phase_collect_jars_repl",
+    "phase_compile_repl",
+    "phase_coverage_common",
     "phase_declare_executable",
+    "phase_default_info",
+    "phase_dependency_common",
+    "phase_java_wrapper_repl",
     "phase_merge_jars",
-    "phase_repl_collect_jars",
-    "phase_repl_compile",
-    "phase_repl_java_wrapper",
-    "phase_repl_write_executable",
+    "phase_runfiles_common",
     "phase_scalac_provider",
-    "phase_unused_deps_checker",
+    "phase_write_executable_repl",
     "phase_write_manifest",
     "run_phases",
 )
@@ -33,20 +34,20 @@ def _scala_repl_impl(ctx):
         [
             ("scalac_provider", phase_scalac_provider),
             ("write_manifest", phase_write_manifest),
-            ("unused_deps_checker", phase_unused_deps_checker),
+            ("dependency", phase_dependency_common),
             # need scala-compiler for MainGenericRunner below
-            ("collect_jars", phase_repl_collect_jars),
-            ("java_wrapper", phase_repl_java_wrapper),
+            ("collect_jars", phase_collect_jars_repl),
+            ("java_wrapper", phase_java_wrapper_repl),
             ("declare_executable", phase_declare_executable),
             # no need to build an ijar for an executable
-            ("compile", phase_repl_compile),
+            ("compile", phase_compile_repl),
+            ("coverage", phase_coverage_common),
             ("merge_jars", phase_merge_jars),
-            ("runfiles", phase_common_runfiles),
-            ("write_executable", phase_repl_write_executable),
+            ("runfiles", phase_runfiles_common),
+            ("write_executable", phase_write_executable_repl),
+            ("default_info", phase_default_info),
         ],
-        # fixed phase
-        ("final", phase_binary_final),
-    ).final
+    )
 
 _scala_repl_attrs = {
     "jvm_flags": attr.string_list(),

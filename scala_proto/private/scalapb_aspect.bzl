@@ -1,7 +1,6 @@
-load(
-    "//scala/private:common.bzl",
-    "write_manifest_file",
-)
+load("@rules_proto//proto:defs.bzl", "ProtoInfo")
+load("//scala/private:common.bzl", "write_manifest_file")
+load("//scala/private:dependency.bzl", "legacy_unclear_dependency_info_for_protobuf_scrooge")
 load("//scala/private:rule_impls.bzl", "compile_scala")
 load("//scala_proto/private:proto_to_scala_src.bzl", "proto_to_scala_src")
 
@@ -51,7 +50,9 @@ def _compile_scala(
         output,
         scalapb_jar,
         deps_java_info,
-        implicit_deps):
+        implicit_deps,
+        resources,
+        resource_strip_prefix):
     manifest = ctx.actions.declare_file(
         label.name + "_MANIFEST.MF",
         sibling = scalapb_jar,
@@ -78,8 +79,8 @@ def _compile_scala(
         all_srcjars = depset([scalapb_jar]),
         transitive_compile_jars = merged_deps.transitive_compile_time_jars,
         plugins = [],
-        resource_strip_prefix = "",
-        resources = [],
+        resource_strip_prefix = resource_strip_prefix,
+        resources = resources,
         resource_jars = [],
         labels = {},
         in_scalacopts = [],
@@ -87,6 +88,8 @@ def _compile_scala(
         expect_java_output = False,
         scalac_jvm_flags = [],
         scalac = scalac,
+        dependency_info = legacy_unclear_dependency_info_for_protobuf_scrooge(ctx),
+        unused_dependency_checker_ignored_targets = [],
     )
 
     return JavaInfo(
@@ -193,6 +196,8 @@ def _scalapb_aspect_impl(target, ctx):
                 scalapb_file,
                 deps,
                 imps,
+                compile_protos,
+                "" if target_ti.proto_source_root == "." else target_ti.proto_source_root,
             )
         else:
             # this target is only an aggregation target

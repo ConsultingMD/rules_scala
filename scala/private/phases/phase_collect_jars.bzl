@@ -4,16 +4,11 @@
 # DOCUMENT THIS
 #
 load(
-    "@io_bazel_rules_scala//scala/private:rule_impls.bzl",
-    "is_dependency_analyzer_off",
-    "is_plus_one_deps_off",
-)
-load(
     "@io_bazel_rules_scala//scala/private:common.bzl",
     "collect_jars",
 )
 
-def phase_scalatest_collect_jars(ctx, p):
+def phase_collect_jars_scalatest(ctx, p):
     args = struct(
         base_classpath = p.scalac_provider.default_classpath + [ctx.attr._scalatest],
         extra_runtime_deps = [
@@ -21,21 +16,21 @@ def phase_scalatest_collect_jars(ctx, p):
             ctx.attr._scalatest_runner,
         ],
     )
-    return _phase_default_collect_jars(ctx, p, args)
+    return _phase_collect_jars_default(ctx, p, args)
 
-def phase_repl_collect_jars(ctx, p):
+def phase_collect_jars_repl(ctx, p):
     args = struct(
         base_classpath = p.scalac_provider.default_repl_classpath,
     )
-    return _phase_default_collect_jars(ctx, p, args)
+    return _phase_collect_jars_default(ctx, p, args)
 
-def phase_macro_library_collect_jars(ctx, p):
+def phase_collect_jars_macro_library(ctx, p):
     args = struct(
         base_classpath = p.scalac_provider.default_macro_classpath,
     )
-    return _phase_default_collect_jars(ctx, p, args)
+    return _phase_collect_jars_default(ctx, p, args)
 
-def phase_junit_test_collect_jars(ctx, p):
+def phase_collect_jars_junit_test(ctx, p):
     args = struct(
         extra_deps = [
             ctx.attr._junit,
@@ -44,24 +39,18 @@ def phase_junit_test_collect_jars(ctx, p):
             ctx.attr._bazel_test_runner,
         ],
     )
-    return _phase_default_collect_jars(ctx, p, args)
+    return _phase_collect_jars_default(ctx, p, args)
 
-def phase_library_for_plugin_bootstrapping_collect_jars(ctx, p):
-    args = struct(
-        unused_dependency_checker_mode = "off",
-    )
-    return _phase_default_collect_jars(ctx, p, args)
+def phase_collect_jars_common(ctx, p):
+    return _phase_collect_jars_default(ctx, p)
 
-def phase_common_collect_jars(ctx, p):
-    return _phase_default_collect_jars(ctx, p)
-
-def _phase_default_collect_jars(ctx, p, _args = struct()):
+def _phase_collect_jars_default(ctx, p, _args = struct()):
     return _phase_collect_jars(
         ctx,
+        p,
         _args.base_classpath if hasattr(_args, "base_classpath") else p.scalac_provider.default_classpath,
         _args.extra_deps if hasattr(_args, "extra_deps") else [],
         _args.extra_runtime_deps if hasattr(_args, "extra_runtime_deps") else [],
-        _args.unused_dependency_checker_mode if hasattr(_args, "unused_dependency_checker_mode") else p.unused_deps_checker,
     )
 
 # Extract very common code out from dependency analysis into single place
@@ -69,18 +58,15 @@ def _phase_default_collect_jars(ctx, p, _args = struct()):
 # collects jars from deps, runtime jars from runtime_deps, and
 def _phase_collect_jars(
         ctx,
+        p,
         base_classpath,
         extra_deps,
-        extra_runtime_deps,
-        unused_dependency_checker_mode):
-    unused_dependency_checker_is_off = unused_dependency_checker_mode == "off"
-    dependency_analyzer_is_off = is_dependency_analyzer_off(ctx)
-
+        extra_runtime_deps):
     deps_jars = collect_jars(
         ctx.attr.deps + extra_deps + base_classpath,
-        dependency_analyzer_is_off,
-        unused_dependency_checker_is_off,
-        is_plus_one_deps_off(ctx),
+        p.dependency.dependency_mode,
+        p.dependency.need_direct_info,
+        p.dependency.need_indirect_info,
     )
 
     (
@@ -108,6 +94,7 @@ def _phase_collect_jars(
         transitive_compile_jars = transitive_compile_jars,
         transitive_runtime_jars = transitive_rjars,
         deps_providers = deps_providers,
+        external_providers = {"JarsToLabelsInfo": jars2labels},
     )
 
 def _collect_runtime_jars(dep_targets):

@@ -5,29 +5,20 @@
 #
 load("@bazel_tools//tools/jdk:toolchain_utils.bzl", "find_java_runtime_toolchain", "find_java_toolchain")
 load(
-    "@io_bazel_rules_scala//scala/private:coverage_replacements_provider.bzl",
-    _coverage_replacements_provider = "coverage_replacements_provider",
+    "@io_bazel_rules_scala//scala/private:paths.bzl",
+    _get_files_with_extension = "get_files_with_extension",
+    _java_extension = "java_extension",
+    _scala_extension = "scala_extension",
+    _srcjar_extension = "srcjar_extension",
 )
 load(
     "@io_bazel_rules_scala//scala/private:rule_impls.bzl",
-    _adjust_resources_path_by_default_prefixes = "adjust_resources_path_by_default_prefixes",
     _compile_scala = "compile_scala",
     _expand_location = "expand_location",
 )
+load(":resources.bzl", _resource_paths = "paths")
 
-_java_extension = ".java"
-
-_scala_extension = ".scala"
-
-_srcjar_extension = ".srcjar"
-
-_empty_coverage_struct = struct(
-    instrumented_files = None,
-    providers = [],
-    replacements = {},
-)
-
-def phase_binary_compile(ctx, p):
+def phase_compile_binary(ctx, p):
     args = struct(
         buildijar = False,
         unused_dependency_checker_ignored_targets = [
@@ -36,9 +27,9 @@ def phase_binary_compile(ctx, p):
                           ctx.attr.unused_dependency_checker_ignored_targets
         ],
     )
-    return _phase_default_compile(ctx, p, args)
+    return _phase_compile_default(ctx, p, args)
 
-def phase_library_compile(ctx, p):
+def phase_compile_library(ctx, p):
     args = struct(
         srcjars = p.collect_srcjars,
         unused_dependency_checker_ignored_targets = [
@@ -47,19 +38,15 @@ def phase_library_compile(ctx, p):
                           ctx.attr.unused_dependency_checker_ignored_targets
         ],
     )
-    return _phase_default_compile(ctx, p, args)
+    return _phase_compile_default(ctx, p, args)
 
-def phase_library_for_plugin_bootstrapping_compile(ctx, p):
+def phase_compile_library_for_plugin_bootstrapping(ctx, p):
     args = struct(
-        unused_dependency_checker_ignored_targets = [
-            target.label
-            for target in p.scalac_provider.default_classpath + ctx.attr.exports
-        ],
-        unused_dependency_checker_mode = "off",
+        buildijar = ctx.attr.build_ijar,
     )
-    return _phase_default_compile(ctx, p, args)
+    return _phase_compile_default(ctx, p, args)
 
-def phase_macro_library_compile(ctx, p):
+def phase_compile_macro_library(ctx, p):
     args = struct(
         buildijar = False,
         unused_dependency_checker_ignored_targets = [
@@ -68,9 +55,9 @@ def phase_macro_library_compile(ctx, p):
                           ctx.attr.unused_dependency_checker_ignored_targets
         ],
     )
-    return _phase_default_compile(ctx, p, args)
+    return _phase_compile_default(ctx, p, args)
 
-def phase_junit_test_compile(ctx, p):
+def phase_compile_junit_test(ctx, p):
     args = struct(
         buildijar = False,
         implicit_junit_deps_needed_for_java_compilation = [
@@ -88,9 +75,9 @@ def phase_junit_test_compile(ctx, p):
             ctx.attr._bazel_test_runner.label,
         ],
     )
-    return _phase_default_compile(ctx, p, args)
+    return _phase_compile_default(ctx, p, args)
 
-def phase_repl_compile(ctx, p):
+def phase_compile_repl(ctx, p):
     args = struct(
         buildijar = False,
         unused_dependency_checker_ignored_targets = [
@@ -99,31 +86,31 @@ def phase_repl_compile(ctx, p):
                           ctx.attr.unused_dependency_checker_ignored_targets
         ],
     )
-    return _phase_default_compile(ctx, p, args)
+    return _phase_compile_default(ctx, p, args)
 
-def phase_scalatest_compile(ctx, p):
+def phase_compile_scalatest(ctx, p):
     args = struct(
         buildijar = False,
         unused_dependency_checker_ignored_targets = [
             target.label
             for target in p.scalac_provider.default_classpath +
+                          [ctx.attr._scalatest] +
                           ctx.attr.unused_dependency_checker_ignored_targets
         ],
     )
-    return _phase_default_compile(ctx, p, args)
+    return _phase_compile_default(ctx, p, args)
 
-def phase_common_compile(ctx, p):
-    return _phase_default_compile(ctx, p)
+def phase_compile_common(ctx, p):
+    return _phase_compile_default(ctx, p)
 
-def _phase_default_compile(ctx, p, _args = struct()):
+def _phase_compile_default(ctx, p, _args = struct()):
     return _phase_compile(
         ctx,
         p,
         _args.srcjars if hasattr(_args, "srcjars") else depset(),
         _args.buildijar if hasattr(_args, "buildijar") else True,
         _args.implicit_junit_deps_needed_for_java_compilation if hasattr(_args, "implicit_junit_deps_needed_for_java_compilation") else [],
-        _args.unused_dependency_checker_ignored_targets if hasattr(_args, "unused_dependency_checker_ignored_targets") else [],
-        _args.unused_dependency_checker_mode if hasattr(_args, "unused_dependency_checker_mode") else p.unused_deps_checker,
+        unused_dependency_checker_ignored_targets = _args.unused_dependency_checker_ignored_targets if hasattr(_args, "unused_dependency_checker_ignored_targets") else [],
     )
 
 def _phase_compile(
@@ -133,8 +120,7 @@ def _phase_compile(
         buildijar,
         # TODO: generalize this hack
         implicit_junit_deps_needed_for_java_compilation,
-        unused_dependency_checker_ignored_targets,
-        unused_dependency_checker_mode):
+        unused_dependency_checker_ignored_targets):
     manifest = ctx.outputs.manifest
     jars = p.collect_jars.compile_jars
     rjars = p.collect_jars.transitive_runtime_jars
@@ -152,23 +138,20 @@ def _phase_compile(
         transitive_compile_jars,
         jars2labels,
         implicit_junit_deps_needed_for_java_compilation,
-        unused_dependency_checker_mode,
-        unused_dependency_checker_ignored_targets,
+        p.dependency,
         deps_providers,
         default_classpath,
+        unused_dependency_checker_ignored_targets,
     )
 
     # TODO: simplify the return values and use provider
     return struct(
-        class_jar = out.class_jar,
-        coverage = out.coverage,
-        full_jars = out.full_jars,
-        ijar = out.ijar,
-        ijars = out.ijars,
+        files = depset(out.full_jars),
         rjars = depset(out.full_jars, transitive = [rjars]),
-        java_jar = out.java_jar,
-        source_jars = _pack_source_jars(ctx) + out.source_jars,
         merged_provider = out.merged_provider,
+        external_providers = {
+            "JavaInfo": out.merged_provider,
+        },
     )
 
 def _compile_or_empty(
@@ -180,10 +163,10 @@ def _compile_or_empty(
         transitive_compile_jars,
         jars2labels,
         implicit_junit_deps_needed_for_java_compilation,
-        unused_dependency_checker_mode,
-        unused_dependency_checker_ignored_targets,
+        dependency_info,
         deps_providers,
-        default_classpath):
+        default_classpath,
+        unused_dependency_checker_ignored_targets):
     # We assume that if a srcjar is present, it is not empty
     if len(ctx.files.srcs) + len(srcjars.to_list()) == 0:
         _build_nosrc_jar(ctx)
@@ -192,39 +175,16 @@ def _compile_or_empty(
 
         #  no need to build ijar when empty
         return struct(
-            class_jar = ctx.outputs.jar,
-            coverage = _empty_coverage_struct,
             full_jars = [ctx.outputs.jar],
-            ijar = ctx.outputs.jar,
-            ijars = [ctx.outputs.jar],
-            java_jar = False,
-            source_jars = [],
             merged_provider = scala_compilation_provider,
         )
     else:
-        in_srcjars = [
-            f
-            for f in ctx.files.srcs
-            if f.basename.endswith(_srcjar_extension)
-        ]
+        java_srcs = _get_files_with_extension(ctx, _java_extension)
+        scala_srcs = _get_files_with_extension(ctx, _scala_extension)
+        in_srcjars = _get_files_with_extension(ctx, _srcjar_extension)
         all_srcjars = depset(in_srcjars, transitive = [srcjars])
 
-        java_srcs = [
-            f
-            for f in ctx.files.srcs
-            if f.basename.endswith(_java_extension)
-        ]
-
-        # We are not able to verify whether dependencies are used when compiling java sources
-        # Thus we disable unused dependency checking when java sources are found
-        if len(java_srcs) != 0:
-            unused_dependency_checker_mode = "off"
-
-        sources = [
-            f
-            for f in ctx.files.srcs
-            if f.basename.endswith(_scala_extension)
-        ] + java_srcs
+        sources = scala_srcs + java_srcs
         _compile_scala(
             ctx,
             ctx.label,
@@ -245,9 +205,8 @@ def _compile_or_empty(
             ctx.attr.expect_java_output,
             ctx.attr.scalac_jvm_flags,
             ctx.attr._scalac,
-            unused_dependency_checker_ignored_targets =
-                unused_dependency_checker_ignored_targets,
-            unused_dependency_checker_mode = unused_dependency_checker_mode,
+            dependency_info,
+            unused_dependency_checker_ignored_targets,
         )
 
         # build ijar if needed
@@ -263,7 +222,7 @@ def _compile_or_empty(
             #  so set ijar == jar
             ijar = ctx.outputs.jar
 
-        source_jar = _pack_source_jar(ctx)
+        source_jar = _pack_source_jar(ctx, scala_srcs, in_srcjars)
         scala_compilation_provider = _create_scala_compilation_provider(ctx, ijar, source_jar, deps_providers)
 
         # compile the java now
@@ -277,14 +236,8 @@ def _compile_or_empty(
         )
 
         full_jars = [ctx.outputs.jar]
-        ijars = [ijar]
-        source_jars = []
         if java_jar:
             full_jars += [java_jar.jar]
-            ijars += [java_jar.ijar]
-            source_jars += java_jar.source_jars
-
-        coverage = _jacoco_offline_instrument(ctx, ctx.outputs.jar)
 
         if java_jar:
             merged_provider = java_common.merge([scala_compilation_provider, java_jar.java_compilation_provider])
@@ -292,21 +245,9 @@ def _compile_or_empty(
             merged_provider = scala_compilation_provider
 
         return struct(
-            class_jar = ctx.outputs.jar,
-            coverage = coverage,
             full_jars = full_jars,
-            ijar = ijar,
-            ijars = ijars,
-            java_jar = java_jar,
-            source_jars = source_jars,
             merged_provider = merged_provider,
         )
-
-def _pack_source_jars(ctx):
-    source_jar = _pack_source_jar(ctx)
-
-    #_pack_source_jar may return None if java_common.pack_sources returned None (and it can)
-    return [source_jar] if source_jar else []
 
 def _build_nosrc_jar(ctx):
     resources = _add_resources_cmd(ctx)
@@ -359,73 +300,15 @@ def _create_scala_compilation_provider(ctx, ijar, source_jar, deps_providers):
         runtime_deps = runtime_deps,
     )
 
-def _pack_source_jar(ctx):
-    # collect .scala sources and pack a source jar for Scala
-    scala_sources = [
-        f
-        for f in ctx.files.srcs
-        if f.basename.endswith(_scala_extension)
-    ]
-
-    # collect .srcjar files and pack them with the scala sources
-    bundled_source_jars = [
-        f
-        for f in ctx.files.srcs
-        if f.basename.endswith(_srcjar_extension)
-    ]
-    scala_source_jar = java_common.pack_sources(
+def _pack_source_jar(ctx, scala_srcs, in_srcjars):
+    return java_common.pack_sources(
         ctx.actions,
         output_jar = ctx.outputs.jar,
-        sources = scala_sources,
-        source_jars = bundled_source_jars,
+        sources = scala_srcs,
+        source_jars = in_srcjars,
         java_toolchain = find_java_toolchain(ctx, ctx.attr._java_toolchain),
         host_javabase = find_java_runtime_toolchain(ctx, ctx.attr._host_javabase),
     )
-
-    return scala_source_jar
-
-def _jacoco_offline_instrument(ctx, input_jar):
-    if not ctx.configuration.coverage_enabled or not hasattr(ctx.attr, "_code_coverage_instrumentation_worker"):
-        return _empty_coverage_struct
-
-    output_jar = ctx.actions.declare_file(
-        "{}-offline.jar".format(input_jar.basename.split(".")[0]),
-    )
-    in_out_pairs = [
-        (input_jar, output_jar),
-    ]
-
-    args = ctx.actions.args()
-    args.add_all(in_out_pairs, map_each = _jacoco_offline_instrument_format_each)
-    args.set_param_file_format("multiline")
-    args.use_param_file("@%s", use_always = True)
-
-    ctx.actions.run(
-        mnemonic = "JacocoInstrumenter",
-        inputs = [in_out_pair[0] for in_out_pair in in_out_pairs],
-        outputs = [in_out_pair[1] for in_out_pair in in_out_pairs],
-        executable = ctx.attr._code_coverage_instrumentation_worker.files_to_run,
-        execution_requirements = {"supports-workers": "1"},
-        arguments = [args],
-    )
-
-    replacements = {i: o for (i, o) in in_out_pairs}
-    provider = _coverage_replacements_provider.create(
-        replacements = replacements,
-    )
-    instrumented_files_provider = coverage_common.instrumented_files_info(
-        ctx,
-        source_attributes = ["srcs"],
-        dependency_attributes = _coverage_replacements_provider.dependency_attributes,
-        extensions = ["scala", "java"],
-    )
-    return struct(
-        providers = [provider, instrumented_files_provider],
-        replacements = replacements,
-    )
-
-def _jacoco_offline_instrument_format_each(in_out_pair):
-    return (["%s=%s" % (in_out_pair[0].path, in_out_pair[1].path)])
 
 def _try_to_compile_java_jar(
         ctx,
@@ -480,36 +363,10 @@ def _try_to_compile_java_jar(
         java_compilation_provider = provider,
     )
 
-def _adjust_resources_path(path, resource_strip_prefix):
-    if resource_strip_prefix:
-        return _adjust_resources_path_by_strip_prefix(path, resource_strip_prefix)
-    else:
-        return _adjust_resources_path_by_default_prefixes(path)
-
 def _add_resources_cmd(ctx):
-    res_cmd = []
-    for f in ctx.files.resources:
-        c_dir, res_path = _adjust_resources_path(
-            f.short_path,
-            ctx.attr.resource_strip_prefix,
-        )
-        target_path = res_path
-        if target_path[0] == "/":
-            target_path = target_path[1:]
-        line = "{target_path}={c_dir}{res_path}\n".format(
-            res_path = res_path,
-            target_path = target_path,
-            c_dir = c_dir,
-        )
-        res_cmd.extend([line])
-    return "".join(res_cmd)
-
-def _adjust_resources_path_by_strip_prefix(path, resource_strip_prefix):
-    if not path.startswith(resource_strip_prefix):
-        fail("Resource file %s is not under the specified prefix to strip" % path)
-
-    clean_path = path[len(resource_strip_prefix):]
-    return resource_strip_prefix, clean_path
+    paths = _resource_paths(ctx.files.resources, ctx.attr.resource_strip_prefix)
+    lines = ["{target}={source}\n".format(target = p[0], source = p[1]) for p in paths]
+    return "".join(lines)
 
 def _collect_java_providers_of(deps):
     providers = []

@@ -1,5 +1,6 @@
 package io.bazel.rulesscala.scalac;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,19 +16,19 @@ public class CompileOptions {
   public final String[] files;
   public final String[] sourceJars;
   public final String[] javaFiles;
-  public final Map<String, Resource> resourceFiles;
-  public final String resourceStripPrefix;
+  public final List<Resource> resourceFiles;
   public final String[] resourceJars;
   public final String[] classpathResourceFiles;
   public final String[] directJars;
   public final String[] directTargets;
-  public final String[] ignoredTargets;
+  public final String[] unusedDepsIgnoredTargets;
   public final String[] indirectJars;
   public final String[] indirectTargets;
-  public final String dependencyAnalyzerMode;
+  public final String strictDepsMode;
   public final String unusedDependencyCheckerMode;
   public final String currentTarget;
   public final String statsfile;
+  public final String dependencyTrackingMethod;
 
   public CompileOptions(List<String> args) {
     Map<String, String> argMap = buildArgMap(args);
@@ -50,46 +51,38 @@ public class CompileOptions {
 
     sourceJars = getCommaList(argMap, "SourceJars");
     resourceFiles = getResources(argMap);
-    resourceStripPrefix = getOrEmpty(argMap, "ResourceStripPrefix");
     resourceJars = getCommaList(argMap, "ResourceJars");
     classpathResourceFiles = getCommaList(argMap, "ClasspathResourceSrcs");
 
     directJars = getCommaList(argMap, "DirectJars");
     directTargets = getCommaList(argMap, "DirectTargets");
-    ignoredTargets = getCommaList(argMap, "IgnoredTargets");
+    unusedDepsIgnoredTargets = getCommaList(argMap, "UnusedDepsIgnoredTargets");
     indirectJars = getCommaList(argMap, "IndirectJars");
     indirectTargets = getCommaList(argMap, "IndirectTargets");
 
-    dependencyAnalyzerMode = getOrElse(argMap, "DependencyAnalyzerMode", "off");
+    strictDepsMode = getOrElse(argMap, "StrictDepsMode", "off");
     unusedDependencyCheckerMode = getOrElse(argMap, "UnusedDependencyCheckerMode", "off");
     currentTarget = getOrElse(argMap, "CurrentTarget", "NA");
+    dependencyTrackingMethod = getOrElse(argMap, "DependencyTrackingMethod", "high-level");
 
     statsfile = getOrError(argMap, "StatsfileOutput", "Missing required arg StatsfileOutput");
   }
 
-  private static Map<String, Resource> getResources(Map<String, String> args) {
-    String[] keys = getCommaList(args, "ResourceSrcs");
-    String[] dests = getCommaList(args, "ResourceDests");
-    String[] shortPaths = getCommaList(args, "ResourceShortPaths");
+  private static List<Resource> getResources(Map<String, String> args) {
+    String[] targets = getCommaList(args, "ResourceTargets");
+    String[] sources = getCommaList(args, "ResourceSources");
 
-    if (keys.length != dests.length)
+    if (targets.length != sources.length)
       throw new RuntimeException(
           String.format(
-              "mismatch in resources: keys: %s dests: %s",
-              getOrEmpty(args, "ResourceSrcs"), getOrEmpty(args, "ResourceDests")));
+              "mismatch in resources: targets: %s sources: %s",
+              getOrEmpty(args, "ResourceTargets"), getOrEmpty(args, "ResourceSources")));
 
-    if (keys.length != shortPaths.length)
-      throw new RuntimeException(
-          String.format(
-              "mismatch in resources: keys: %s shortPaths: %s",
-              getOrEmpty(args, "ResourceSrcs"), getOrEmpty(args, "ResourceShortPaths")));
-
-    HashMap<String, Resource> res = new HashMap();
-    for (int idx = 0; idx < keys.length; idx++) {
-      Resource resource = new Resource(dests[idx], shortPaths[idx]);
-      res.put(keys[idx], resource);
+    List<Resource> resources = new ArrayList<Resource>();
+    for (int idx = 0; idx < targets.length; idx++) {
+      resources.add(new Resource(targets[idx], sources[idx]));
     }
-    return res;
+    return resources;
   }
 
   private static HashMap<String, String> buildArgMap(List<String> lines) {

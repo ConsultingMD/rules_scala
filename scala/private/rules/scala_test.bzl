@@ -12,17 +12,18 @@ load("@io_bazel_rules_scala//scala/private:common_outputs.bzl", "common_outputs"
 load(
     "@io_bazel_rules_scala//scala/private:phases/phases.bzl",
     "extras_phases",
-    "phase_common_java_wrapper",
+    "phase_collect_jars_scalatest",
+    "phase_compile_scalatest",
+    "phase_coverage_common",
     "phase_coverage_runfiles",
     "phase_declare_executable",
+    "phase_default_info",
+    "phase_dependency_common",
+    "phase_java_wrapper_common",
     "phase_merge_jars",
+    "phase_runfiles_scalatest",
     "phase_scalac_provider",
-    "phase_scalatest_collect_jars",
-    "phase_scalatest_compile",
-    "phase_scalatest_final",
-    "phase_scalatest_runfiles",
-    "phase_scalatest_write_executable",
-    "phase_unused_deps_checker",
+    "phase_write_executable_scalatest",
     "phase_write_manifest",
     "run_phases",
 )
@@ -34,20 +35,20 @@ def _scala_test_impl(ctx):
         [
             ("scalac_provider", phase_scalac_provider),
             ("write_manifest", phase_write_manifest),
-            ("unused_deps_checker", phase_unused_deps_checker),
-            ("collect_jars", phase_scalatest_collect_jars),
-            ("java_wrapper", phase_common_java_wrapper),
+            ("dependency", phase_dependency_common),
+            ("collect_jars", phase_collect_jars_scalatest),
+            ("java_wrapper", phase_java_wrapper_common),
             ("declare_executable", phase_declare_executable),
             # no need to build an ijar for an executable
-            ("compile", phase_scalatest_compile),
+            ("compile", phase_compile_scalatest),
+            ("coverage", phase_coverage_common),
             ("merge_jars", phase_merge_jars),
-            ("runfiles", phase_scalatest_runfiles),
+            ("runfiles", phase_runfiles_scalatest),
             ("coverage_runfiles", phase_coverage_runfiles),
-            ("write_executable", phase_scalatest_write_executable),
+            ("write_executable", phase_write_executable_scalatest),
+            ("default_info", phase_default_info),
         ],
-        # fixed phase
-        ("final", phase_scalatest_final),
-    ).final
+    )
 
 _scala_test_attrs = {
     "main_class": attr.string(
