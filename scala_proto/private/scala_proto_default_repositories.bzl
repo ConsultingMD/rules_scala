@@ -27,7 +27,7 @@ def scala_proto_default_repositories(
         },
         "2.12": {
             "scalapb_plugin": "516ed567e2c3ac28b91a2f350d3febc7a6a396978718145f536853ffe8de40c2",
-            "protoc_bridge": "2b8db0b71be5052768a96ccc41c9bb03f3f19e1e267e810a64963566538b1ak",
+            "protoc_bridge": "2b8db0b71be5052768a96ccc41c9bb03f3f19e1e267e810a64963566538b1a2b",
             "scalapbc": "5c2e8188f3c7c5e9528fdd648cd5dce9a91fcbecb5c3c022a50dd5df2d57511b",
             "scalapb_runtime": "82624a7fadaa323bbb8d33e37f055ce42e761c203573ace3ccf95bd0511917fe",
             "scalapb_runtime_grpc": "4c00f2a57cc1d00a2d454f695c3f1e565173e1d1297294f1cf81339bdeba3f4a",
