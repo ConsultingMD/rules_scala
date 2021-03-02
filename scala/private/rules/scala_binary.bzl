@@ -20,6 +20,7 @@ load(
     "phase_dependency_common",
     "phase_java_wrapper_common",
     "phase_merge_jars",
+    "phase_link_scalajs",
     "phase_runfiles_common",
     "phase_scalac_provider",
     "phase_write_executable_common",
@@ -80,3 +81,61 @@ def make_scala_binary(*extras):
     )
 
 scala_binary = make_scala_binary()
+
+def _scalajs_binary_impl(ctx):
+    return run_phases(
+        ctx,
+        # customizable phases
+        [
+            ("scalac_provider", phase_scalac_provider),
+            #("write_manifest", phase_write_manifest),
+            ("dependency", phase_dependency_common),
+            ("collect_jars", phase_collect_jars_common),
+            #("java_wrapper", phase_java_wrapper_common),
+            #("declare_executable", phase_declare_executable),
+            # no need to build an ijar for an executable
+            #("compile", phase_compile_binary),
+            #("coverage", phase_coverage_common),
+            ("link_scalajs", phase_link_scalajs),
+            #("runfiles", phase_runfiles_common),
+            #("write_executable", phase_write_executable_common),
+            ("default_info", phase_default_info),
+        ],
+    )
+
+_scalajs_binary_attrs = {
+    "main_class": attr.string(mandatory = True),
+    "method": attr.string(mandatory = True),
+    "classpath_resources": attr.label_list(allow_files = True),
+    "_scalajs_linker": attr.label(
+        default = Label("@io_bazel_rules_scala//src/scala/scripts:scalajs_linker")
+    ),
+}
+
+_scalajs_binary_attrs.update(implicit_deps)
+
+_scalajs_binary_attrs.update(common_attrs)
+
+_scalajs_binary_attrs.update(resolve_deps)
+
+_scalajs_binary_attrs.update()
+
+def make_scalajs_binary(*extras):
+    return rule(
+        attrs = _dicts.add(
+            _scalajs_binary_attrs,
+            extras_phases(extras),
+            *[extra["attrs"] for extra in extras if "attrs" in extra]
+        ),
+        executable = False,
+        # TODO: what does fragments do?
+        fragments = ["java"],
+        outputs = _dicts.add(
+            {"js": "%{name}.js"},
+            *[extra["outputs"] for extra in extras if "outputs" in extra]
+        ),
+        toolchains = ["@io_bazel_rules_scala//scala:toolchain_type"],
+        implementation = _scalajs_binary_impl,
+    )
+
+scalajs_binary = make_scalajs_binary()

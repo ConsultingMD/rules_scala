@@ -131,3 +131,13 @@ def scala_repositories(
         name = "io_bazel_rules_scala/dependency/scala/scalactic/scalactic",
         actual = "@io_bazel_rules_scala_scalactic",
     )
+
+    native.bind(
+        name = "io_bazel_rules_scala/dependency/scala_js/scalajs_ir",
+        actual = "@io_bazel_rules_scala_scalajs_ir",
+    )
+
+    native.bind(
+        name = "io_bazel_rules_scala/dependency/scala_js/scalajs_linker",
+        actual = "@io_bazel_rules_scala_scalajs_linker",
+    )

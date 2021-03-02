@@ -2,6 +2,7 @@ load(
     "@io_bazel_rules_scala//scala:providers.bzl",
     _DepsInfo = "DepsInfo",
 )
+load("//scala/private/toolchain_deps:toolchain_deps.bzl", "expose_toolchain_deps")
 
 def _compute_strict_deps_mode(input_strict_deps_mode, dependency_mode):
     if dependency_mode == "direct":
@@ -103,4 +104,42 @@ scala_toolchain = rule(
         ),
     },
     fragments = ["java"],
+)
+
+def _scala_deps_toolchain(ctx):
+    toolchain = platform_common.ToolchainInfo(
+        dep_providers = ctx.attr.dep_providers,
+    )
+    return [toolchain]
+
+scala_deps_toolchain = rule(
+    _scala_deps_toolchain,
+    attrs = {
+        "dep_providers": attr.label_list(
+            default = [
+                "@io_bazel_rules_scala//scala:scala_compile_classpath_provider",
+                "@io_bazel_rules_scala//scala:scala_library_classpath_provider",
+                "@io_bazel_rules_scala//scala:scala_macro_classpath_provider",
+                "@io_bazel_rules_scala//scala:scala_xml_provider",
+                "@io_bazel_rules_scala//scala:parser_combinators_provider",
+                "@io_bazel_rules_scala//scala:scalajs_linker_provider",
+            ],
+            cfg = "target",
+            providers = [_DepsInfo],
+        ),
+    },
+)
+
+def _export_scala_toolchain_deps(ctx):
+    return expose_toolchain_deps(ctx, "@io_bazel_rules_scala//scala:deps_toolchain_type")
+
+export_scala_toolchain_deps = rule(
+    _export_scala_toolchain_deps,
+    attrs = {
+        "deps_id": attr.string(
+            mandatory = True,
+        ),
+    },
+    #incompatible_use_toolchain_transition = True,
+    toolchains = ["@io_bazel_rules_scala//scala:deps_toolchain_type"],
 )

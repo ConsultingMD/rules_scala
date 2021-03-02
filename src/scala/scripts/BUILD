@@ -49,3 +49,25 @@ scala_binary(
         ":scalapb_worker_lib",
     ],
 )
+
+scala_library(
+    name = "scalajs_linker_lib",
+    srcs = [
+        "ScalaJSLinkRequest.scala",
+        "ScalaJSLinker.scala",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//scala:scalajs_linker_deps",
+        "//src/java/io/bazel/rulesscala/worker",
+    ],
+)
+
+scala_binary(
+    name = "scalajs_linker",
+    main_class = "scripts.ScalaJSLinker",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":scalajs_linker_lib",
+    ],
+)

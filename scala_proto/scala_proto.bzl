@@ -61,3 +61,8 @@ scala_proto_library = rule(
 
 def scalapb_proto_library(**kwargs):
     scala_proto_library(**kwargs)
+
+# TODO: this will be a rule/macro to indicate we should compile the generated
+# scala code with the scala.js plugin.
+def scalajs_proto_library(**kwargs):
+    scala_proto_library(**kwargs)

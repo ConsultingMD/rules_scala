@@ -52,6 +52,7 @@ def _compile_scala(
         scalapb_jar,
         deps_java_info,
         implicit_deps,
+        plugins,
         resources,
         resource_strip_prefix):
     manifest = ctx.actions.declare_file(
@@ -84,7 +85,7 @@ def _compile_scala(
         cjars = merged_deps.compile_jars,
         all_srcjars = depset([scalapb_jar]),
         transitive_compile_jars = merged_deps.transitive_compile_time_jars,
-        plugins = [],
+        plugins = plugins,
         resource_strip_prefix = resource_strip_prefix,
         resources = resources,
         resource_jars = [],
@@ -153,6 +154,13 @@ def _scalapb_aspect_impl(target, ctx):
 
         imps = [dep[JavaInfo] for dep in compile_deps]
 
+        scalajs_compiler_plugin = find_deps_info_on(
+            ctx,
+            deps_toolchain_type_label,
+            "scalajs_compiler_plugin",
+        ).deps
+        imps.extend([dep[JavaInfo] for dep in scalajs_compiler_plugin])
+
         if toolchain.with_grpc:
             grpc_deps = find_deps_info_on(ctx, deps_toolchain_type_label, "scalapb_grpc_deps").deps
             flags.append("grpc")
@@ -212,6 +220,7 @@ def _scalapb_aspect_impl(target, ctx):
                 scalapb_file,
                 deps,
                 imps,
+                scalajs_compiler_plugin,
                 compile_protos,
                 "" if target_ti.proto_source_root == "." else target_ti.proto_source_root,
             )
@@ -250,7 +259,7 @@ scalapb_aspect = aspect(
             default = "@com_google_protobuf//:protoc",
         ),
     },
-    incompatible_use_toolchain_transition = True,
+    #incompatible_use_toolchain_transition = True,
     toolchains = [
         "@io_bazel_rules_scala//scala:toolchain_type",
         "@io_bazel_rules_scala//scala_proto:toolchain_type",

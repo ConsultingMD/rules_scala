@@ -33,6 +33,7 @@ load(
     _phase_compile_common = "phase_compile_common",
     _phase_compile_junit_test = "phase_compile_junit_test",
     _phase_compile_library = "phase_compile_library",
+    _phase_compile_scalajs_library = "phase_compile_scalajs_library",
     _phase_compile_library_for_plugin_bootstrapping = "phase_compile_library_for_plugin_bootstrapping",
     _phase_compile_macro_library = "phase_compile_macro_library",
     _phase_compile_repl = "phase_compile_repl",
@@ -61,6 +62,7 @@ load(
 )
 load("@io_bazel_rules_scala//scala/private:phases/phase_declare_executable.bzl", _phase_declare_executable = "phase_declare_executable")
 load("@io_bazel_rules_scala//scala/private:phases/phase_merge_jars.bzl", _phase_merge_jars = "phase_merge_jars")
+load("@io_bazel_rules_scala//scala/private:phases/phase_link_scalajs.bzl", _phase_link_scalajs = "phase_link_scalajs")
 load("@io_bazel_rules_scala//scala/private:phases/phase_jvm_flags.bzl", _phase_jvm_flags = "phase_jvm_flags")
 load("@io_bazel_rules_scala//scala/private:phases/phase_coverage_runfiles.bzl", _phase_coverage_runfiles = "phase_coverage_runfiles")
 load("@io_bazel_rules_scala//scala/private:phases/phase_scalafmt.bzl", _phase_scalafmt = "phase_scalafmt")
@@ -90,6 +92,9 @@ phase_declare_executable = _phase_declare_executable
 
 # merge_jars
 phase_merge_jars = _phase_merge_jars
+
+# link scala.js
+phase_link_scalajs = _phase_link_scalajs
 
 # jvm_flags
 phase_jvm_flags = _phase_jvm_flags
@@ -121,6 +126,7 @@ phase_collect_jars_common = _phase_collect_jars_common
 # compile
 phase_compile_binary = _phase_compile_binary
 phase_compile_library = _phase_compile_library
+phase_compile_scalajs_library = _phase_compile_scalajs_library
 phase_compile_library_for_plugin_bootstrapping = _phase_compile_library_for_plugin_bootstrapping
 phase_compile_macro_library = _phase_compile_macro_library
 phase_compile_junit_test = _phase_compile_junit_test
