@@ -21,6 +21,9 @@ ScalaPBInfo = provider(fields = [
     "aspect_info",
 ])
 
+TRUE = "True"
+FALSE = "False"
+
 def merge_proto_infos(tis):
     return struct(
         transitive_sources = [t.transitive_sources for t in tis],
@@ -146,22 +149,30 @@ def _scalapb_aspect_impl(target, ctx):
         toolchain = ctx.toolchains[toolchain_type_label]
         flags = []
 
+        compile_deps_id = "scalapb_compile_deps" if ctx.attr.scalajs == FALSE else "scalajs_proto_compile_deps"
+
         compile_deps = find_deps_info_on(
             ctx,
             deps_toolchain_type_label,
-            "scalapb_compile_deps",
+            compile_deps_id,
         ).deps
 
         imps = [dep[JavaInfo] for dep in compile_deps]
 
-        scalajs_compiler_plugin = find_deps_info_on(
-            ctx,
-            deps_toolchain_type_label,
-            "scalajs_compiler_plugin",
-        ).deps
-        imps.extend([dep[JavaInfo] for dep in scalajs_compiler_plugin])
+        plugins = []
+        if ctx.attr.scalajs == TRUE:
+            # TODO: enforce this only has a single jar?
+            scalajs_compiler_plugin = find_deps_info_on(
+                ctx,
+                deps_toolchain_type_label,
+                "scalajs_compiler_plugin",
+            ).deps
+            imps.extend([dep[JavaInfo] for dep in scalajs_compiler_plugin])
+            plugins.extend(scalajs_compiler_plugin)
 
-        if toolchain.with_grpc:
+            # TODO: handle the grpcweb code generator
+
+        elif toolchain.with_grpc:
             grpc_deps = find_deps_info_on(ctx, deps_toolchain_type_label, "scalapb_grpc_deps").deps
             flags.append("grpc")
             imps.extend([dep[JavaInfo] for dep in grpc_deps])
@@ -220,7 +231,7 @@ def _scalapb_aspect_impl(target, ctx):
                 scalapb_file,
                 deps,
                 imps,
-                scalajs_compiler_plugin,
+                plugins,
                 compile_protos,
                 "" if target_ti.proto_source_root == "." else target_ti.proto_source_root,
             )
@@ -258,6 +269,7 @@ scalapb_aspect = aspect(
             cfg = "exec",
             default = "@com_google_protobuf//:protoc",
         ),
+        "scalajs": attr.string(values = [TRUE, FALSE]),
     },
     #incompatible_use_toolchain_transition = True,
     toolchains = [
