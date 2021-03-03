@@ -1,6 +1,6 @@
 package scripts
 
-import org.scalajs.linker.interface.StandardConfig
+import org.scalajs.linker.interface.{ModuleKind, StandardConfig}
 
 case class ScalaJSLinkRequest(
   jsOutput: String,
@@ -23,6 +23,7 @@ object ScalaJSLinkRequest {
         .withParallel(true)
         .withSourceMap(false)
         .withClosureCompilerIfAvailable(true)
+        .withModuleKind(ModuleKind.CommonJSModule)
     )
   }
 }

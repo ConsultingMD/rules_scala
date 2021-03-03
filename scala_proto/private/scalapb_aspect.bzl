@@ -170,12 +170,24 @@ def _scalapb_aspect_impl(target, ctx):
             imps.extend([dep[JavaInfo] for dep in scalajs_compiler_plugin])
             plugins.extend(scalajs_compiler_plugin)
 
-            # TODO: handle the grpcweb code generator
+        # TODO: cleanup, maybe switch from a named gen in dict to full grpcweb_generator attr?
+        named_generators = toolchain.named_generators
+        if toolchain.with_grpc:
+            if ctx.attr.scalajs == FALSE:
+                grpc_deps = find_deps_info_on(ctx, deps_toolchain_type_label, "scalapb_grpc_deps").deps
+                imps.extend([dep[JavaInfo] for dep in grpc_deps])
+                flags.append("grpc")
 
-        elif toolchain.with_grpc:
-            grpc_deps = find_deps_info_on(ctx, deps_toolchain_type_label, "scalapb_grpc_deps").deps
-            flags.append("grpc")
-            imps.extend([dep[JavaInfo] for dep in grpc_deps])
+                # blacklist grpc-web generator from non scala.js rules
+                named_generators = {
+                    key: value
+                    for key, value in named_generators.items()
+                    if key != "grpc-web"
+                }
+            else:
+                grpc_deps = find_deps_info_on(ctx, deps_toolchain_type_label, "scalajs_grpc_deps").deps
+                imps.extend([dep[JavaInfo] for dep in grpc_deps])
+                pass
 
         if toolchain.with_flat_package:
             flags.append("flat_package")
@@ -216,7 +228,7 @@ def _scalapb_aspect_impl(target, ctx):
                 target_ti.transitive_proto_path.to_list(),
                 flags,
                 scalapb_file,
-                toolchain.named_generators,
+                named_generators,
                 sorted(extra_generator_jars),
             )
 
