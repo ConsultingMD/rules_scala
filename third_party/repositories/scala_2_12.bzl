@@ -27,6 +27,14 @@ artifacts = {
         "artifact": "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
         "sha256": "282c78d064d3e8f09b3663190d9494b85e0bb7d96b0da05994fe994384d96111",
     },
+    "io_bazel_rules_scala_scalajs_linker": {
+        "artifact": "org.scala-js:scalajs-linker_2.12:1.5.0",
+        "sha256": "",
+    },
+    "io_bazel_rules_scala_scalajs_ir": {
+        "artifact": "org.scala-js:scalajs-ir_2.12:1.5.0",
+        "sha256": "",
+    },
     "org_scalameta_common": {
         "artifact": "org.scalameta:common_2.12:4.3.0",
         "sha256": "3bdb2ff71d3e86f94b4d31d2c40442f533655860749a92fd17e1f29b8deb8baa",

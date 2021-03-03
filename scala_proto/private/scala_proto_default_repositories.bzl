@@ -199,4 +199,4 @@ def scala_proto_default_repositories(
         actual = "@scala_proto_rules_opencensus_contrib_grpc_metrics//jar",
     )
 
-    native.register_toolchains("@io_bazel_rules_scala//scala_proto:default_deps_toolchain")
+#    native.register_toolchains("@io_bazel_rules_scala//scala_proto:default_deps_toolchain")

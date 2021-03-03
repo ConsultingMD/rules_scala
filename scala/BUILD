@@ -1,9 +1,29 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_library")
-load("//scala:scala_toolchain.bzl", "scala_toolchain")
+load("//scala:scala_toolchain.bzl", "scala_toolchain", "scala_deps_toolchain", "export_scala_toolchain_deps")
 load("//scala:providers.bzl", "declare_deps_provider")
 
 toolchain_type(
     name = "toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+toolchain_type(
+    name = "deps_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+scala_deps_toolchain(
+    name = "default_deps_toolchain_impl",
+    dep_providers = [
+        ":scalajs_linker_provider",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+toolchain(
+    name = "default_deps_toolchain",
+    toolchain = ":default_deps_toolchain_impl",
+    toolchain_type = "@io_bazel_rules_scala//scala:deps_toolchain_type",
     visibility = ["//visibility:public"],
 )
 
@@ -117,4 +137,20 @@ declare_deps_provider(
     deps_id = "parser_combinators",
     visibility = ["//visibility:public"],
     deps = ["//external:io_bazel_rules_scala/dependency/scala/parser_combinators"],
+)
+
+declare_deps_provider(
+    name = "scalajs_linker_provider",
+    deps_id = "scalajs_linker_deps",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//external:io_bazel_rules_scala/dependency/scala_js/scalajs_ir",
+        "//external:io_bazel_rules_scala/dependency/scala_js/scalajs_linker"
+    ],
+)
+
+export_scala_toolchain_deps(
+    name = "scalajs_linker_deps",
+    deps_id = "scalajs_linker_deps",
+    visibility = ["//visibility:public"],
 )

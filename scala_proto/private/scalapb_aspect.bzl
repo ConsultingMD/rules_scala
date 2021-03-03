@@ -21,6 +21,9 @@ ScalaPBInfo = provider(fields = [
     "aspect_info",
 ])
 
+TRUE = "True"
+FALSE = "False"
+
 def merge_proto_infos(tis):
     return struct(
         transitive_sources = [t.transitive_sources for t in tis],
@@ -52,6 +55,7 @@ def _compile_scala(
         scalapb_jar,
         deps_java_info,
         implicit_deps,
+        plugins,
         resources,
         resource_strip_prefix):
     manifest = ctx.actions.declare_file(
@@ -84,7 +88,7 @@ def _compile_scala(
         cjars = merged_deps.compile_jars,
         all_srcjars = depset([scalapb_jar]),
         transitive_compile_jars = merged_deps.transitive_compile_time_jars,
-        plugins = [],
+        plugins = plugins,
         resource_strip_prefix = resource_strip_prefix,
         resources = resources,
         resource_jars = [],
@@ -145,18 +149,45 @@ def _scalapb_aspect_impl(target, ctx):
         toolchain = ctx.toolchains[toolchain_type_label]
         flags = []
 
+        compile_deps_id = "scalapb_compile_deps" if ctx.attr.scalajs == FALSE else "scalajs_proto_compile_deps"
+
         compile_deps = find_deps_info_on(
             ctx,
             deps_toolchain_type_label,
-            "scalapb_compile_deps",
+            compile_deps_id,
         ).deps
 
         imps = [dep[JavaInfo] for dep in compile_deps]
 
+        plugins = []
+        if ctx.attr.scalajs == TRUE:
+            # TODO: enforce this only has a single jar?
+            scalajs_compiler_plugin = find_deps_info_on(
+                ctx,
+                deps_toolchain_type_label,
+                "scalajs_compiler_plugin",
+            ).deps
+            imps.extend([dep[JavaInfo] for dep in scalajs_compiler_plugin])
+            plugins.extend(scalajs_compiler_plugin)
+
+        # TODO: cleanup, maybe switch from a named gen in dict to full grpcweb_generator attr?
+        named_generators = toolchain.named_generators
         if toolchain.with_grpc:
-            grpc_deps = find_deps_info_on(ctx, deps_toolchain_type_label, "scalapb_grpc_deps").deps
-            flags.append("grpc")
-            imps.extend([dep[JavaInfo] for dep in grpc_deps])
+            if ctx.attr.scalajs == FALSE:
+                grpc_deps = find_deps_info_on(ctx, deps_toolchain_type_label, "scalapb_grpc_deps").deps
+                imps.extend([dep[JavaInfo] for dep in grpc_deps])
+                flags.append("grpc")
+
+                # blacklist grpc-web generator from non scala.js rules
+                named_generators = {
+                    key: value
+                    for key, value in named_generators.items()
+                    if key != "grpc-web"
+                }
+            else:
+                grpc_deps = find_deps_info_on(ctx, deps_toolchain_type_label, "scalajs_grpc_deps").deps
+                imps.extend([dep[JavaInfo] for dep in grpc_deps])
+                pass
 
         if toolchain.with_flat_package:
             flags.append("flat_package")
@@ -197,7 +228,7 @@ def _scalapb_aspect_impl(target, ctx):
                 target_ti.transitive_proto_path.to_list(),
                 flags,
                 scalapb_file,
-                toolchain.named_generators,
+                named_generators,
                 sorted(extra_generator_jars),
             )
 
@@ -212,6 +243,7 @@ def _scalapb_aspect_impl(target, ctx):
                 scalapb_file,
                 deps,
                 imps,
+                plugins,
                 compile_protos,
                 "" if target_ti.proto_source_root == "." else target_ti.proto_source_root,
             )
@@ -249,8 +281,9 @@ scalapb_aspect = aspect(
             cfg = "exec",
             default = "@com_google_protobuf//:protoc",
         ),
+        "scalajs": attr.string(values = [TRUE, FALSE]),
     },
-    incompatible_use_toolchain_transition = True,
+    #incompatible_use_toolchain_transition = True,
     toolchains = [
         "@io_bazel_rules_scala//scala:toolchain_type",
         "@io_bazel_rules_scala//scala_proto:toolchain_type",

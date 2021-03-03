@@ -13,8 +13,10 @@ load(
 )
 load(
     "//scala_proto/private:scalapb_aspect.bzl",
+    "FALSE",
     "ScalaPBAspectInfo",
     "ScalaPBInfo",
+    "TRUE",
     "merge_scalapb_aspect_info",
     "scalapb_aspect",
 )
@@ -55,9 +57,13 @@ scala_proto_library = rule(
     implementation = _scala_proto_library_impl,
     attrs = {
         "deps": attr.label_list(aspects = [scalapb_aspect]),
+        "scalajs": attr.string(default = FALSE),
     },
     provides = [DefaultInfo, ScalaPBInfo, JavaInfo],
 )
 
 def scalapb_proto_library(**kwargs):
     scala_proto_library(**kwargs)
+
+def scalajs_proto_library(**kwargs):
+    scala_proto_library(scalajs = TRUE, **kwargs)

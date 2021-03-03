@@ -26,6 +26,7 @@ load(
     "phase_compile_library",
     "phase_compile_library_for_plugin_bootstrapping",
     "phase_compile_macro_library",
+    "phase_compile_scalajs_library",
     "phase_coverage_common",
     "phase_coverage_library",
     "phase_default_info",
@@ -251,3 +252,55 @@ def make_scala_macro_library(*extras):
     )
 
 scala_macro_library = make_scala_macro_library()
+
+
+##
+# scalajs_library
+##
+
+def _scalajs_library_impl(ctx):
+    return run_phases(
+        ctx,
+        # customizable phases
+        [
+            ("scalac_provider", phase_scalac_provider),
+            ("collect_srcjars", phase_collect_srcjars),
+            ("write_manifest", phase_write_manifest),
+            ("dependency", phase_dependency_common),
+            ("collect_jars", phase_collect_jars_common),
+            ("compile", phase_compile_scalajs_library),
+            ("coverage", phase_coverage_library),
+            ("merge_jars", phase_merge_jars),
+            ("runfiles", phase_runfiles_library),
+            ("collect_exports_jars", phase_collect_exports_jars),
+            ("default_info", phase_default_info),
+        ],
+    )
+
+_scalajs_library_attrs = {}
+
+_scalajs_library_attrs.update(implicit_deps)
+
+_scalajs_library_attrs.update(common_attrs)
+
+_scalajs_library_attrs.update(_library_attrs)
+
+_scalajs_library_attrs.update(resolve_deps)
+
+def make_scalajs_library(*extras):
+    return rule(
+        attrs = _dicts.add(
+            _scalajs_library_attrs,
+            extras_phases(extras),
+            *[extra["attrs"] for extra in extras if "attrs" in extra]
+        ),
+        fragments = ["java"],
+        outputs = _dicts.add(
+            common_outputs,
+            *[extra["outputs"] for extra in extras if "outputs" in extra]
+        ),
+        toolchains = ["@io_bazel_rules_scala//scala:toolchain_type"],
+        implementation = _scalajs_library_impl,
+    )
+
+scalajs_library = make_scalajs_library()

@@ -9,6 +9,7 @@ load(
 load(
     "@io_bazel_rules_scala//scala/private:rules/scala_binary.bzl",
     _scala_binary = "scala_binary",
+    _scalajs_binary = "scalajs_binary",
 )
 load(
     "@io_bazel_rules_scala//scala/private:rules/scala_doc.bzl",
@@ -21,6 +22,7 @@ load(
 load(
     "@io_bazel_rules_scala//scala/private:rules/scala_library.bzl",
     _scala_library = "scala_library",
+    _scalajs_library = "scalajs_library",
     _scala_library_for_plugin_bootstrapping = "scala_library_for_plugin_bootstrapping",
     _scala_library_suite = "scala_library_suite",
     _scala_macro_library = "scala_macro_library",
@@ -50,9 +52,11 @@ def scala_specs2_junit_test(name, **kwargs):
 
 # Re-export private rules for public consumption
 scala_binary = _scala_binary
+scalajs_binary = _scalajs_binary
 scala_doc = _scala_doc
 scala_junit_test = _scala_junit_test
 scala_library = _scala_library
+scalajs_library = _scalajs_library
 scala_library_for_plugin_bootstrapping = _scala_library_for_plugin_bootstrapping
 scala_library_suite = _scala_library_suite
 scala_macro_library = _scala_macro_library

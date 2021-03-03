@@ -17,6 +17,7 @@ load(
     _compile_scala = "compile_scala",
     _expand_location = "expand_location",
 )
+load("@io_bazel_rules_scala//scala/private/toolchain_deps:toolchain_deps.bzl", "find_deps_info_on")
 load(":resources.bzl", _resource_paths = "paths")
 
 def phase_compile_binary(ctx, p):
@@ -39,6 +40,25 @@ def phase_compile_library(ctx, p):
                           ctx.attr.unused_dependency_checker_ignored_targets
         ],
     )
+    return _phase_compile_default(ctx, p, args)
+
+def phase_compile_scalajs_library(ctx, p):
+    scalajs_compiler_plugin = find_deps_info_on(
+        ctx,
+        "@io_bazel_rules_scala//scala:toolchain_type",
+        "scalajs_compiler_plugin", # TODO: make global?
+    ).deps
+
+    args = struct(
+        plugins = scalajs_compiler_plugin,
+        srcjars = p.collect_srcjars,
+        unused_dependency_checker_ignored_targets = [
+            target.label
+            for target in p.scalac_provider.default_classpath + ctx.attr.exports +
+                          ctx.attr.unused_dependency_checker_ignored_targets
+        ],
+    )
+
     return _phase_compile_default(ctx, p, args)
 
 def phase_compile_library_for_plugin_bootstrapping(ctx, p):
@@ -110,6 +130,7 @@ def _phase_compile_default(ctx, p, _args = struct()):
         _args.buildijar if hasattr(_args, "buildijar") else True,
         _args.implicit_junit_deps_needed_for_java_compilation if hasattr(_args, "implicit_junit_deps_needed_for_java_compilation") else [],
         unused_dependency_checker_ignored_targets = _args.unused_dependency_checker_ignored_targets if hasattr(_args, "unused_dependency_checker_ignored_targets") else [],
+        plugins = _args.plugins if hasattr(_args, "plugins") else ctx.attr.plugins,
     )
 
 def _phase_compile(
@@ -119,7 +140,8 @@ def _phase_compile(
         buildijar,
         # TODO: generalize this hack
         implicit_junit_deps_needed_for_java_compilation,
-        unused_dependency_checker_ignored_targets):
+        unused_dependency_checker_ignored_targets,
+        plugins):
     manifest = ctx.outputs.manifest
     jars = p.collect_jars.compile_jars
     rjars = p.collect_jars.transitive_runtime_jars
@@ -141,6 +163,7 @@ def _phase_compile(
         deps_providers,
         default_classpath,
         unused_dependency_checker_ignored_targets,
+        plugins
     )
 
     # TODO: simplify the return values and use provider
@@ -165,7 +188,8 @@ def _compile_or_empty(
         dependency_info,
         deps_providers,
         default_classpath,
-        unused_dependency_checker_ignored_targets):
+        unused_dependency_checker_ignored_targets,
+        plugins):
     # We assume that if a srcjar is present, it is not empty
     if len(ctx.files.srcs) + len(srcjars.to_list()) == 0:
         _build_nosrc_jar(ctx)
@@ -195,7 +219,7 @@ def _compile_or_empty(
             jars,
             all_srcjars,
             transitive_compile_jars,
-            ctx.attr.plugins,
+            plugins,
             ctx.attr.resource_strip_prefix,
             ctx.files.resources,
             ctx.files.resource_jars,
