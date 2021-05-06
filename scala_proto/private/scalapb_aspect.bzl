@@ -86,7 +86,7 @@ def _compile_scala(
         in_scalacopts = [],
         print_compile_time = False,
         expect_java_output = False,
-        scalac_jvm_flags = [],
+        scalac_jvm_flags = ["-Xss8M"],
         scalac = scalac,
         dependency_info = legacy_unclear_dependency_info_for_protobuf_scrooge(ctx),
         unused_dependency_checker_ignored_targets = [],
