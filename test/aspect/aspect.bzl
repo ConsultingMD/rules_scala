@@ -23,36 +23,27 @@ def _rule_impl(ctx):
     expected_deps = {
         "scala_library": [
             "//test/aspect:scala_library",
-            "@io_bazel_rules_scala_scala_library//:io_bazel_rules_scala_scala_library",
+            "//scala/private/toolchain_deps:scala_library_classpath",
         ],
         "scala_test": [
             "//test/aspect:scala_test",
-            "@io_bazel_rules_scala_scala_library//:io_bazel_rules_scala_scala_library",
-            "@io_bazel_rules_scala//scala/scalatest:scalatest",
+            "//scala/private/toolchain_deps:scala_library_classpath",
+            "//testing/toolchain:scalatest_classpath",
         ],
         "scala_junit_test": [
             "//test/aspect:scala_junit_test",
-            "@io_bazel_rules_scala_scala_library//:io_bazel_rules_scala_scala_library",
-            "@io_bazel_rules_scala_junit_junit//:io_bazel_rules_scala_junit_junit",
-            "@io_bazel_rules_scala_org_hamcrest_hamcrest_core//:io_bazel_rules_scala_org_hamcrest_hamcrest_core",
+            "//scala/private/toolchain_deps:scala_library_classpath",
+            "//testing/toolchain:junit_classpath",
         ],
         "scala_specs2_junit_test": [
+            "//scala/private/toolchain_deps:scala_library_classpath",
             "//test/aspect:scala_specs2_junit_test",
-            "@io_bazel_rules_scala_scala_library//:io_bazel_rules_scala_scala_library",
-            "@io_bazel_rules_scala_junit_junit//:io_bazel_rules_scala_junit_junit",
-            "@io_bazel_rules_scala_org_hamcrest_hamcrest_core//:io_bazel_rules_scala_org_hamcrest_hamcrest_core",
+            "//testing/toolchain:junit_classpath",
             # From specs2/specs2.bzl:specs2_dependencies()
-            "@io_bazel_rules_scala//specs2:specs2",
-            "@io_bazel_rules_scala_org_specs2_specs2_common//:io_bazel_rules_scala_org_specs2_specs2_common",
-            "@io_bazel_rules_scala_org_specs2_specs2_core//:io_bazel_rules_scala_org_specs2_specs2_core",
-            "@io_bazel_rules_scala_org_specs2_specs2_fp//:io_bazel_rules_scala_org_specs2_specs2_fp",
-            "@io_bazel_rules_scala_org_specs2_specs2_matcher//:io_bazel_rules_scala_org_specs2_specs2_matcher",
-            "@io_bazel_rules_scala_scala_xml//:io_bazel_rules_scala_scala_xml",
-            "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators",
-            "@io_bazel_rules_scala_scala_library//:io_bazel_rules_scala_scala_library",
-            "@io_bazel_rules_scala_scala_reflect//:io_bazel_rules_scala_scala_reflect",
+            "//specs2:specs2",
+            "//scala/private/toolchain_deps:scala_xml",
             # From specs2/specs2_junit.bzl:specs2_junit_dependencies()
-            "@io_bazel_rules_scala_org_specs2_specs2_junit//:io_bazel_rules_scala_org_specs2_specs2_junit",
+            "//testing/toolchain:specs2_junit_classpath",
         ],
     }
     content = ""
@@ -75,7 +66,7 @@ def _rule_impl(ctx):
         output = ctx.outputs.executable,
         content = content,
     )
-    return struct()
+    return []
 
 aspect_test = rule(
     implementation = _rule_impl,

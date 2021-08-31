@@ -11,10 +11,6 @@ load(
     "java_bin",
     "runfiles_root",
 )
-load(
-    "@io_bazel_rules_scala//scala/private:coverage_replacements_provider.bzl",
-    _coverage_replacements_provider = "coverage_replacements_provider",
-)
 
 def phase_write_executable_scalatest(ctx, p):
     # jvm_flags passed in on the target override scala_test_jvm_flags passed in on the
@@ -42,8 +38,10 @@ def phase_write_executable_repl(ctx, p):
 
 def phase_write_executable_junit_test(ctx, p):
     args = struct(
+        rjars = p.coverage_runfiles.rjars,
         jvm_flags = p.jvm_flags + ctx.attr.jvm_flags,
         main_class = "com.google.testing.junit.runner.BazelTestRunner",
+        use_jacoco = ctx.configuration.coverage_enabled,
     )
     return _phase_write_executable_default(ctx, p, args)
 
@@ -109,9 +107,10 @@ def _write_executable_non_windows(ctx, executable, rjars, main_class, jvm_flags,
         wrapper.short_path,
     )
 
-    if use_jacoco and _coverage_replacements_provider.is_enabled(ctx):
+    if use_jacoco and ctx.configuration.coverage_enabled:
+        jacocorunner = ctx.toolchains["@io_bazel_rules_scala//scala:toolchain_type"].jacocorunner
         classpath = ctx.configuration.host_path_separator.join(
-            ["${RUNPATH}%s" % (j.short_path) for j in rjars.to_list() + ctx.files._jacocorunner],
+            ["${RUNPATH}%s" % (j.short_path) for j in rjars.to_list() + jacocorunner.files.to_list()],
         )
         jacoco_metadata_file = ctx.actions.declare_file(
             "%s.jacoco_metadata.txt" % ctx.attr.name,

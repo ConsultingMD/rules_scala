@@ -13,8 +13,8 @@ load(
 )
 load(
     "@io_bazel_rules_scala//scala/private:rule_impls.bzl",
+    _compile_java = "compile_java",
     _compile_scala = "compile_scala",
-    _expand_location = "expand_location",
 )
 load(":resources.bzl", _resource_paths = "paths")
 
@@ -61,16 +61,14 @@ def phase_compile_junit_test(ctx, p):
     args = struct(
         buildijar = False,
         implicit_junit_deps_needed_for_java_compilation = [
-            ctx.attr._junit,
-            ctx.attr._hamcrest,
+            ctx.attr._junit_classpath,
         ],
         unused_dependency_checker_ignored_targets = [
             target.label
             for target in p.scalac_provider.default_classpath +
                           ctx.attr.unused_dependency_checker_ignored_targets
         ] + [
-            ctx.attr._junit.label,
-            ctx.attr._hamcrest.label,
+            ctx.attr._junit_classpath.label,
             ctx.attr.suite_label.label,
             ctx.attr._bazel_test_runner.label,
         ],
@@ -191,6 +189,7 @@ def _compile_or_empty(
             ctx.outputs.jar,
             manifest,
             ctx.outputs.statsfile,
+            ctx.outputs.diagnosticsfile,
             sources,
             jars,
             all_srcjars,
@@ -204,7 +203,7 @@ def _compile_or_empty(
             ctx.attr.print_compile_time,
             ctx.attr.expect_java_output,
             ctx.attr.scalac_jvm_flags,
-            ctx.attr._scalac,
+            ctx.executable._scalac,
             dependency_info,
             unused_dependency_checker_ignored_targets,
         )
@@ -237,7 +236,7 @@ def _compile_or_empty(
 
         full_jars = [ctx.outputs.jar]
         if java_jar:
-            full_jars += [java_jar.jar]
+            full_jars.append(java_jar.jar)
 
         if java_jar:
             merged_provider = java_common.merge([scala_compilation_provider, java_jar.java_compilation_provider])
@@ -261,8 +260,9 @@ def _build_nosrc_jar(ctx):
     cmd = """
 rm -f {jar_output}
 {zipper} c {jar_output} @{path}
-# ensures that empty src targets still emit a statsfile
+# ensures that empty src targets still emit a statsfile and a diagnosticsfile
 touch {statsfile}
+touch {diagnosticsfile}
 """ + ijar_cmd
 
     cmd = cmd.format(
@@ -270,9 +270,10 @@ touch {statsfile}
         jar_output = ctx.outputs.jar.path,
         zipper = ctx.executable._zipper.path,
         statsfile = ctx.outputs.statsfile.path,
+        diagnosticsfile = ctx.outputs.diagnosticsfile.path,
     )
 
-    outs = [ctx.outputs.jar, ctx.outputs.statsfile]
+    outs = [ctx.outputs.jar, ctx.outputs.statsfile, ctx.outputs.diagnosticsfile]
     inputs = ctx.files.resources + [ctx.outputs.manifest]
 
     ctx.actions.run_shell(
@@ -298,6 +299,7 @@ def _create_scala_compilation_provider(ctx, ijar, source_jar, deps_providers):
         deps = deps_providers,
         exports = exports,
         runtime_deps = runtime_deps,
+        neverlink = ctx.attr.neverlink,
     )
 
 def _pack_source_jar(ctx, scala_srcs, in_srcjars):
@@ -330,30 +332,17 @@ def _try_to_compile_java_jar(
     scala_sources_java_provider = _interim_java_provider_for_java_compilation(
         scala_output,
     )
-    providers_of_dependencies += [scala_sources_java_provider]
+    providers_of_dependencies.append(scala_sources_java_provider)
 
     full_java_jar = ctx.actions.declare_file(ctx.label.name + "_java.jar")
 
-    provider = java_common.compile(
+    provider = _compile_java(
         ctx,
         source_jars = all_srcjars.to_list(),
         source_files = java_srcs,
         output = full_java_jar,
-        javac_opts = _expand_location(
-            ctx,
-            ctx.attr.javacopts + ctx.attr.javac_jvm_flags +
-            java_common.default_javac_opts(
-                java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-            ),
-        ),
-        deps = providers_of_dependencies,
-        #exports can be empty since the manually created provider exposes exports
-        #needs to be empty since we want the provider.compile_jars to only contain the sources ijar
-        #workaround until https://github.com/bazelbuild/bazel/issues/3528 is resolved
-        exports = [],
-        java_toolchain = find_java_toolchain(ctx, ctx.attr._java_toolchain),
-        host_javabase = find_java_runtime_toolchain(ctx, ctx.attr._host_javabase),
-        strict_deps = ctx.fragments.java.strict_java_deps,
+        extra_javac_opts = ctx.attr.javacopts + ctx.attr.javac_jvm_flags,
+        providers_of_dependencies = providers_of_dependencies,
     )
 
     return struct(

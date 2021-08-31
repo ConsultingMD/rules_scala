@@ -85,7 +85,7 @@ test_scala_library_expect_failure_on_missing_direct_deps_warn_mode() {
 
   expected_message="warning: Target '$dependenecy_target' is used but isn't explicitly declared, please add it to the deps"
 
-  test_expect_failure_or_warning_on_missing_direct_deps_with_expected_message "${expected_message}" ${test_target} "--strict_java_deps=warn" "ne"
+  test_expect_failure_or_warning_on_missing_direct_deps_with_expected_message "${expected_message}" ${test_target} "--extra_toolchains=//test/toolchains:high_level_transitive_deps_strict_deps_warn" "ne"
 }
 
 test_scala_library_expect_failure_on_missing_direct_deps_warn_mode_java() {
@@ -101,13 +101,13 @@ test_scala_library_expect_failure_on_missing_direct_deps_off_mode() {
   expected_message="test_expect_failure/missing_direct_deps/internal_deps/A.scala:[0-9+]: error: not found: value C"
   test_target='test_expect_failure/missing_direct_deps/internal_deps:transitive_dependency_user'
 
-  test_expect_failure_or_warning_on_missing_direct_deps_with_expected_message "${expected_message}" ${test_target} "--strict_java_deps=off"
+  test_expect_failure_or_warning_on_missing_direct_deps_with_expected_message "${expected_message}" ${test_target} "--extra_toolchains=//test/toolchains:high_level_direct_deps"
 }
 
 test_scala_library_expect_no_recompilation_on_internal_change_of_transitive_dependency() {
   set +e
   no_recompilation_path="test/src/main/scala/scalarules/test/strict_deps/no_recompilation"
-  build_command="bazel build //$no_recompilation_path/... --subcommands --strict_java_deps=error"
+  build_command="bazel build //$no_recompilation_path/... --subcommands --extra_toolchains=//test/toolchains:high_level_transitive_deps_strict_deps_error"
 
   echo "running initial build"
   $build_command
@@ -159,14 +159,24 @@ test_scala_library_expect_failure_on_java_in_src_jar_when_disabled() {
   test_expect_failure_with_message "${expected_message}" $test_target
 }
 
-test_scala_library_expect_better_failure_message_on_missing_transitive_dependency_labels_from_other_jvm_rules() {
+test_scala_library_expect_better_failure_with_target_label_from_stamped_jar_on_missing_transitive_dependency() {
   transitive_target='.*transitive_dependency-ijar.jar'
   direct_target='//test_expect_failure/missing_direct_deps/internal_deps:direct_java_provider_dependency'
   test_target='//test_expect_failure/missing_direct_deps/internal_deps:dependent_on_some_java_provider'
 
+  expected_message='//test_expect_failure/missing_direct_deps/internal_deps:transitive_dependency'
+
+  test_expect_failure_or_warning_on_missing_direct_deps_with_expected_message "${expected_message}" $test_target "--extra_toolchains=//test/toolchains:high_level_transitive_deps_strict_deps_error"
+}
+
+test_scala_library_expect_better_failure_message_on_missing_transitive_dependency_labels_from_other_jvm_rules() {
+  transitive_target='.*transitive_dependency_without_manifest.jar'
+  direct_target='//test_expect_failure/missing_direct_deps/internal_deps:unstamped_direct_java_provider_dependency'
+  test_target='//test_expect_failure/missing_direct_deps/internal_deps:unstamped_jar_dependent_on_some_java_provider'
+
   expected_message="Unknown label of file $transitive_target which came from $direct_target"
 
-  test_expect_failure_or_warning_on_missing_direct_deps_with_expected_message "${expected_message}" $test_target "--strict_java_deps=error"
+  test_expect_failure_or_warning_on_missing_direct_deps_with_expected_message "${expected_message}" $test_target "--extra_toolchains=//test/toolchains:high_level_transitive_deps_strict_deps_error"
 }
 
 $runner test_scala_library_suite
@@ -184,3 +194,4 @@ $runner test_scala_library_expect_no_java_recompilation_on_internal_change_of_sc
 $runner test_scala_library_expect_failure_on_missing_direct_java
 $runner test_scala_library_expect_failure_on_java_in_src_jar_when_disabled
 $runner test_scala_library_expect_better_failure_message_on_missing_transitive_dependency_labels_from_other_jvm_rules
+$runner test_scala_library_expect_better_failure_with_target_label_from_stamped_jar_on_missing_transitive_dependency

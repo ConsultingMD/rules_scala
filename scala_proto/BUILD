@@ -1,9 +1,28 @@
-load("@rules_java//java:defs.bzl", "java_library")
-load("//scala_proto:scala_proto_toolchain.bzl", "scala_proto_toolchain")
-load("//scala_proto:default_dep_sets.bzl", "DEFAULT_SCALAPB_COMPILE_DEPS", "DEFAULT_SCALAPB_GRPC_DEPS")
+load(
+    "//scala_proto:scala_proto_toolchain.bzl",
+    "scala_proto_deps_toolchain",
+    "scala_proto_toolchain",
+)
+load(
+    "//scala_proto/default:default_deps.bzl",
+    "DEFAULT_SCALAPB_COMPILE_DEPS",
+    "DEFAULT_SCALAPB_GRPC_DEPS",
+)
+load("//scala:providers.bzl", "declare_deps_provider")
+load("//scala_proto/private:toolchain_deps.bzl", "export_scalapb_toolchain_deps")
 
 toolchain_type(
     name = "toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+toolchain_type(
+    name = "deps_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+scala_proto_deps_toolchain(
+    name = "default_deps_toolchain_impl",
     visibility = ["//visibility:public"],
 )
 
@@ -22,12 +41,17 @@ toolchain(
     visibility = ["//visibility:public"],
 )
 
+toolchain(
+    name = "default_deps_toolchain",
+    toolchain = ":default_deps_toolchain_impl",
+    toolchain_type = ":deps_toolchain_type",
+)
+
 scala_proto_toolchain(
     name = "enable_all_options_toolchain_impl",
     visibility = ["//visibility:public"],
     with_flat_package = True,
     with_grpc = True,
-    # with_java=True,
     with_single_line_to_string = True,
 )
 
@@ -38,14 +62,33 @@ toolchain(
     visibility = ["//visibility:public"],
 )
 
-java_library(
-    name = "default_scalapb_compile_dependencies",
+declare_deps_provider(
+    name = "scalapb_compile_deps_provider",
+    deps_id = "scalapb_compile_deps",
     visibility = ["//visibility:public"],
-    exports = DEFAULT_SCALAPB_COMPILE_DEPS,
+    deps = DEFAULT_SCALAPB_COMPILE_DEPS,
 )
 
-java_library(
-    name = "default_scalapb_grpc_dependencies",
+declare_deps_provider(
+    name = "scalapb_grpc_deps_provider",
+    deps_id = "scalapb_grpc_deps",
     visibility = ["//visibility:public"],
-    exports = DEFAULT_SCALAPB_GRPC_DEPS,
+    deps = DEFAULT_SCALAPB_GRPC_DEPS,
+)
+
+declare_deps_provider(
+    name = "scalapb_worker_deps_provider",
+    deps_id = "scalapb_worker_deps",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_protobuf//:protobuf_java",
+        "@scala_proto_rules_protoc_bridge",
+        "@scala_proto_rules_scalapb_plugin",
+    ],
+)
+
+export_scalapb_toolchain_deps(
+    name = "scalapb_worker_deps",
+    deps_id = "scalapb_worker_deps",
+    visibility = ["//visibility:public"],
 )

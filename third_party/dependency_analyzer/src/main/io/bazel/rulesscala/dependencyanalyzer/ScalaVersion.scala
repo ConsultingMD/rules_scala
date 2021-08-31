@@ -1,4 +1,4 @@
-package third_party.dependency_analyzer.src.main.io.bazel.rulesscala.dependencyanalyzer
+package io.bazel.rulesscala.dependencyanalyzer
 
 import scala.language.experimental.macros
 import scala.reflect.macros.blackbox
@@ -56,6 +56,7 @@ object ScalaVersion {
     code: c.Expr[String]
   ): c.Tree = {
     import c.{universe => u}
+    import u._
 
     // Due to non-deterministic code generation of quasiquotes, we do
     // not use them

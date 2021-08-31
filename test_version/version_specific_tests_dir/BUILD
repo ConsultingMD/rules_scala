@@ -1,7 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
-
-package(default_testonly = 1)
-
 load(
     "@io_bazel_rules_scala//scala:scala.bzl",
     "scala_binary",
@@ -12,10 +9,8 @@ load(
     "scala_specs2_junit_test",
     "scala_test",
 )
-load(
-    "@io_bazel_rules_scala//scala_proto:scala_proto.bzl",
-    "scala_proto_library",
-)
+
+package(default_testonly = 1)
 
 # The examples below show how to combine Scala and Java rules.
 # ScalaBinary is the Scala equivalent of JavaBinary.
@@ -107,10 +102,11 @@ scala_library(
     srcs = glob(["src/main/scala/scalarules/test/mix_java_scala/*.scala"]) + glob([
         "src/main/scala/scalarules/test/mix_java_scala/*.java",
     ]),
-    jvm_flags = [
-        "-Xms1G",
-        "-Xmx4G",
-    ],
+    #    disabled due to Travis CI memory failure
+    #    scalac_jvm_flags = [
+    #        "-Xms1G",
+    #        "-Xmx4G",
+    #    ],
 )
 
 #needed to test java sources are compiled
@@ -172,13 +168,4 @@ scala_binary(
     name = "test_scala_proto_server",
     main_class = "test.proto.TestServer",
     deps = [":lib_with_scala_proto_dep"],
-)
-
-scala_proto_library(
-    name = "test_proto_scala_dep",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":HelloLib",
-        "//proto:test2",
-    ],
 )

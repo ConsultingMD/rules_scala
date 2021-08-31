@@ -1,9 +1,25 @@
 load("//scala:scala.bzl", "scala_library")
+load("@io_bazel_rules_scala_config//:config.bzl", "SCALA_MAJOR_VERSION")
 
 scala_library(
     name = "test_reporter",
     srcs = ["JUnitXmlReporter.scala"],
     scalacopts = [
+        "-deprecation:true",
+        "-encoding",
+        "UTF-8",
+        "-feature",
+        "-language:existentials",
+        "-language:higherKinds",
+        "-language:implicitConversions",
+        "-unchecked",
+        "-Xfatal-warnings",
+        "-Xlint",
+        "-Ywarn-dead-code",
+        "-Ywarn-numeric-widen",
+        "-Ywarn-value-discard",
+        "-Wunused:imports",
+    ] if SCALA_MAJOR_VERSION == "2.13" else [
         "-deprecation:true",
         "-encoding",
         "UTF-8",
@@ -24,7 +40,7 @@ scala_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//external:io_bazel_rules_scala/dependency/scala/scala_xml",
-        "//external:io_bazel_rules_scala/dependency/scalatest/scalatest",
+        "//scala/private/toolchain_deps:scala_xml",
+        "//testing/toolchain:scalatest_classpath",
     ],
 )

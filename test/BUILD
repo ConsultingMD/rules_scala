@@ -1,8 +1,5 @@
 load("@rules_python//python:defs.bzl", "py_binary")
 load("@rules_java//java:defs.bzl", "java_binary", "java_import", "java_library")
-
-package(default_testonly = 1)
-
 load(
     "//scala:scala.bzl",
     "scala_binary",
@@ -16,10 +13,9 @@ load(
     "scala_test",
     "scala_test_suite",
 )
-load(
-    "//scala_proto:scala_proto.bzl",
-    "scala_proto_library",
-)
+load(":check_statsfile.bzl", "check_statsfile")
+
+package(default_testonly = 1)
 
 # The examples below show how to combine Scala and Java rules.
 # ScalaBinary is the Scala equivalent of JavaBinary.
@@ -30,7 +26,7 @@ java_binary(
     main_class = "scalarules.test.JavaBinary",
     runtime_deps = [
         ":OtherJavaLib",
-        "//external:io_bazel_rules_scala/dependency/scala/scala_library",
+        "//scala/private/toolchain_deps:scala_library_classpath",
     ],
     deps = [
         ":Exported",
@@ -66,7 +62,6 @@ scala_binary(
 scala_library(
     name = "HelloLib",
     srcs = ["HelloLib.scala"],
-    plugins = ["@org_psywerx_hairyfotr__linter//jar"],
     deps = [
         "Exported",
         "MacroTest",
@@ -115,7 +110,7 @@ scala_test_suite(
 scala_test_suite(
     name = "TestSuitePassesKwArgs",
     size = "small",  # Not a macro, can pass test-specific attributes.
-    srcs = glob(["ScalaTestData.scala"]),
+    srcs = ["ScalaTestData.scala"],
     data = ["//test/data:foo.txt"],
     jvm_flags = ["-Dtext=$(location //test/data:foo.txt)"],
     scalac_jvm_flags = [
@@ -281,7 +276,7 @@ scala_repl(
 
 scala_library(
     name = "jar_export",
-    exports = ["@com_twitter__scalding_date//jar"],
+    exports = ["@org_typelevel__cats_core//jar"],
 )
 
 #Mix java scala
@@ -478,6 +473,26 @@ scala_specs2_junit_test(
     "//test:test_scala_proto_server",
 ]]
 
+# Generate a file containing the rootpaths of a Scala binary.
+genrule(
+    name = "rootpath-script",
+    srcs = [":ScalaBinary"],
+    outs = ["rootpath-script.out"],
+    cmd = """
+       rootpaths=($(rootpaths {}))
+       (IFS='\n'; echo "$${{rootpaths[*]}}") | sort > $@
+   """.format(":ScalaBinary"),
+)
+
+# Validate that the rootpaths point to both the binary
+# and the JAR.
+sh_test(
+    name = "ScalaBinaryRootpaths",
+    srcs = ["rootpaths_binary.sh"],
+    args = ["$(location :rootpath-script.out)"],
+    data = [":rootpath-script.out"],
+)
+
 sh_test(
     name = "test_binary_run_with_large_classpath",
     srcs = ["test_binary_run_with_large_classpath.sh"],
@@ -576,7 +591,7 @@ scala_library(
 scala_library(
     name = "customJunitRunner",
     srcs = ["src/main/scala/scalarules/test/junit/JunitCustomRunner.java"],
-    deps = ["//external:io_bazel_rules_scala/dependency/junit/junit"],
+    deps = ["@io_bazel_rules_scala_junit_junit"],
 )
 
 # make sure making a fat jar strips signatures
@@ -645,30 +660,10 @@ scala_binary(
     deps = [":lib_with_scala_proto_dep"],
 )
 
-scala_proto_library(
-    name = "test_proto_scala_dep",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":HelloLib",
-        "//test/proto:test2",
-    ],
-)
-
-scala_proto_library(
-    name = "test_proto_scala_import_dep",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//test/proto:test2",
-        "@com_github_jnr_jffi_native",
-    ],
-)
-
 scala_library(
     name = "java_uses_scala_std_lib",
     srcs = ["JavaUsesScalaStdLib.java"],
 )
-
-load(":check_statsfile.bzl", "check_statsfile")
 
 check_statsfile("ScalaBinary")
 
@@ -678,7 +673,7 @@ check_statsfile("ScalaLibBinary")
 scala_library(
     name = "JunitSeparateTarget",
     srcs = ["src/main/scala/scalarules/test/junit/separate_target/JunitSeparateTargetTest.scala"],
-    deps = ["//external:io_bazel_rules_scala/dependency/junit/junit"],
+    deps = ["@io_bazel_rules_scala_junit_junit"],
 )
 
 scala_junit_test(
@@ -692,7 +687,7 @@ scala_junit_test(
 java_library(
     name = "JunitJavaSeparateTarget",
     srcs = ["src/main/scala/scalarules/test/junit/separate_target/JunitJavaSeparateTargetTest.java"],
-    deps = ["//external:io_bazel_rules_scala/dependency/junit/junit"],
+    deps = ["@io_bazel_rules_scala_junit_junit"],
 )
 
 scala_junit_test(
@@ -706,14 +701,14 @@ scala_junit_test(
 scala_library(
     name = "TargetWithTestThatShouldNotRun",
     srcs = ["src/main/scala/scalarules/test/junit/separate_target/FailingTest.scala"],
-    deps = ["//external:io_bazel_rules_scala/dependency/junit/junit"],
+    deps = ["@io_bazel_rules_scala_junit_junit"],
 )
 
 scala_library(
     name = "JunitSeparateTargetWithDependencyOnTest",
     srcs = ["src/main/scala/scalarules/test/junit/separate_target/JunitSeparateTargetTest.scala"],
     runtime_deps = [":TargetWithTestThatShouldNotRun"],
-    deps = ["//external:io_bazel_rules_scala/dependency/junit/junit"],
+    deps = ["@io_bazel_rules_scala_junit_junit"],
 )
 
 scala_junit_test(
@@ -728,7 +723,7 @@ java_library(
     name = "JunitSeparateJavaTargetWithDependencyOnTest",
     srcs = ["src/main/scala/scalarules/test/junit/separate_target/JunitJavaSeparateTargetTest.java"],
     runtime_deps = [":TargetWithTestThatShouldNotRun"],
-    deps = ["//external:io_bazel_rules_scala/dependency/junit/junit"],
+    deps = ["@io_bazel_rules_scala_junit_junit"],
 )
 
 scala_junit_test(
@@ -745,7 +740,7 @@ scala_library(
         "src/main/scala/scalarules/test/junit/separate_target/JunitJavaSeparateTargetTest.java",
         "src/main/scala/scalarules/test/junit/separate_target/SomeScalaClass.scala",
     ],
-    deps = ["//external:io_bazel_rules_scala/dependency/junit/junit"],
+    deps = ["@io_bazel_rules_scala_junit_junit"],
 )
 
 scala_junit_test(

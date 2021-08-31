@@ -14,10 +14,8 @@
 """Rules for supporting the Scala language."""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load(
-    ":common.bzl",
-    _collect_plugin_paths = "collect_plugin_paths",
-)
+load("@bazel_tools//tools/jdk:toolchain_utils.bzl", "find_java_runtime_toolchain", "find_java_toolchain")
+load(":common.bzl", _collect_plugin_paths = "collect_plugin_paths")
 load(":resources.bzl", _resource_paths = "paths")
 
 def expand_location(ctx, flags):
@@ -27,8 +25,12 @@ def expand_location(ctx, flags):
         data = []
     return [ctx.expand_location(f, data) for f in flags]
 
-def _join_path(args, sep = ","):
-    return sep.join([f.path for f in args])
+# Return the first non-empty arg. If all are empty, return the last.
+def first_non_empty(*args):
+    for arg in args:
+        if arg:
+            return arg
+    return args[-1]
 
 # Return the first non-empty arg. If all are empty, return the last.
 def first_non_empty(*args):
@@ -43,6 +45,7 @@ def compile_scala(
         output,
         manifest,
         statsfile,
+        diagnosticsfile,
         sources,
         cjars,
         all_srcjars,
@@ -58,125 +61,68 @@ def compile_scala(
         scalac_jvm_flags,
         scalac,
         dependency_info,
-        unused_dependency_checker_ignored_targets):
+        unused_dependency_checker_ignored_targets,
+        stamp_target_label = None):
     # look for any plugins:
     input_plugins = plugins
     plugins = _collect_plugin_paths(plugins)
-    internal_plugin_jars = []
-    compiler_classpath_jars = cjars
-    if dependency_info.dependency_mode != "direct":
-        compiler_classpath_jars = transitive_compile_jars
-    optional_scalac_args = ""
-    classpath_resources = []
-    if (hasattr(ctx.files, "classpath_resources")):
-        classpath_resources = ctx.files.classpath_resources
-
-    optional_scalac_args_map = {}
-
     if dependency_info.use_analyzer:
-        dep_plugin = ctx.attr._dependency_analyzer_plugin
-        plugins = depset(transitive = [plugins, dep_plugin.files])
-        internal_plugin_jars = ctx.files._dependency_analyzer_plugin
-
-        current_target = str(target_label)
-        optional_scalac_args_map["CurrentTarget"] = current_target
-
-    if dependency_info.need_indirect_info:
-        transitive_cjars_list = transitive_compile_jars.to_list()
-        indirect_jars = _join_path(transitive_cjars_list)
-        indirect_targets = ",".join([str(labels[j.path]) for j in transitive_cjars_list])
-
-        optional_scalac_args_map["IndirectJars"] = indirect_jars
-        optional_scalac_args_map["IndirectTargets"] = indirect_targets
-
-    if dependency_info.unused_deps_mode != "off":
-        ignored_targets = ",".join([str(d) for d in unused_dependency_checker_ignored_targets])
-        optional_scalac_args_map["UnusedDepsIgnoredTargets"] = ignored_targets
-
-    if dependency_info.need_direct_info:
-        cjars_list = cjars.to_list()
-        if dependency_info.need_direct_jars:
-            direct_jars = _join_path(cjars_list)
-            optional_scalac_args_map["DirectJars"] = direct_jars
-        if dependency_info.need_direct_targets:
-            direct_targets = ",".join([str(labels[j.path]) for j in cjars_list])
-            optional_scalac_args_map["DirectTargets"] = direct_targets
-
-    optional_scalac_args = "\n".join([
-        "{k}: {v}".format(k = k, v = v)
-        # We sort the arguments for input stability and reproducibility
-        for (k, v) in sorted(optional_scalac_args_map.items())
-    ])
-
-    plugins_list = plugins.to_list()
-    plugin_arg = _join_path(plugins_list)
-
-    separator = ctx.configuration.host_path_separator
-    compiler_classpath = _join_path(compiler_classpath_jars.to_list(), separator)
+        plugins = depset(transitive = [plugins, ctx.attr._dependency_analyzer_plugin.files])
 
     toolchain = ctx.toolchains["@io_bazel_rules_scala//scala:toolchain_type"]
+    compiler_classpath_jars = cjars if dependency_info.dependency_mode == "direct" else transitive_compile_jars
+    classpath_resources = getattr(ctx.files, "classpath_resources", [])
     scalacopts = [ctx.expand_location(v, input_plugins) for v in toolchain.scalacopts + in_scalacopts]
     resource_paths = _resource_paths(resources, resource_strip_prefix)
+    enable_diagnostics_report = toolchain.enable_diagnostics_report
 
-    scalac_args = """
-Classpath: {cp}
-ClasspathResourceSrcs: {classpath_resource_src}
-Files: {files}
-JarOutput: {out}
-Manifest: {manifest}
-Plugins: {plugin_arg}
-PrintCompileTime: {print_compile_time}
-ExpectJavaOutput: {expect_java_output}
-ResourceTargets: {resource_targets}
-ResourceSources: {resource_sources}
-ResourceJars: {resource_jars}
-ScalacOpts: {scala_opts}
-SourceJars: {srcjars}
-StrictDepsMode: {strict_deps_mode}
-UnusedDependencyCheckerMode: {unused_dependency_checker_mode}
-DependencyTrackingMethod: {dependency_tracking_method}
-StatsfileOutput: {statsfile_output}
-""".format(
-        out = output.path,
-        manifest = manifest.path,
-        scala_opts = ",".join(scalacopts),
-        print_compile_time = print_compile_time,
-        expect_java_output = expect_java_output,
-        plugin_arg = plugin_arg,
-        cp = compiler_classpath,
-        classpath_resource_src = _join_path(classpath_resources),
-        files = _join_path(sources),
-        srcjars = _join_path(all_srcjars.to_list()),
-        # the resource paths need to be aligned in order
-        resource_targets = ",".join([p[0] for p in resource_paths]),
-        resource_sources = ",".join([p[1] for p in resource_paths]),
-        resource_jars = _join_path(resource_jars),
-        strict_deps_mode = dependency_info.strict_deps_mode,
-        unused_dependency_checker_mode = dependency_info.unused_deps_mode,
-        dependency_tracking_method = dependency_info.dependency_tracking_method,
-        statsfile_output = statsfile.path,
+    args = ctx.actions.args()
+    args.set_param_file_format("multiline")
+    args.use_param_file(param_file_arg = "@%s", use_always = True)
+    args.add("--CurrentTarget", target_label)
+    args.add("--StampLabel", stamp_target_label if stamp_target_label != None else target_label)
+    args.add("--JarOutput", output)
+    args.add("--Manifest", manifest)
+    args.add("--PrintCompileTime", print_compile_time)
+    args.add("--ExpectJavaOutput", expect_java_output)
+    args.add("--StrictDepsMode", dependency_info.strict_deps_mode)
+    args.add("--UnusedDependencyCheckerMode", dependency_info.unused_deps_mode)
+    args.add("--DependencyTrackingMethod", dependency_info.dependency_tracking_method)
+    args.add("--StatsfileOutput", statsfile)
+    args.add("--EnableDiagnosticsReport", enable_diagnostics_report)
+    args.add("--DiagnosticsFile", diagnosticsfile)
+    args.add_all("--Classpath", compiler_classpath_jars)
+    args.add_all("--ClasspathResourceSrcs", classpath_resources)
+    args.add_all("--Files", sources)
+    args.add_all("--Plugins", plugins)
+    args.add_all("--ResourceTargets", [p[0] for p in resource_paths])
+    args.add_all("--ResourceSources", [p[1] for p in resource_paths])
+    args.add_all("--ResourceJars", resource_jars)
+    args.add_all("--ScalacOpts", scalacopts)
+    args.add_all("--SourceJars", all_srcjars)
+
+    if dependency_info.need_direct_info:
+        if dependency_info.need_direct_jars:
+            args.add_all("--DirectJars", cjars)
+        if dependency_info.need_direct_targets:
+            args.add_all("--DirectTargets", [labels[j.path] for j in cjars.to_list()])
+
+    if dependency_info.need_indirect_info:
+        args.add_all("--IndirectJars", transitive_compile_jars)
+        args.add_all("--IndirectTargets", [labels[j.path] for j in transitive_compile_jars.to_list()])
+
+    if dependency_info.unused_deps_mode != "off":
+        args.add_all("--UnusedDepsIgnoredTargets", unused_dependency_checker_ignored_targets)
+
+    outs = [output, statsfile, diagnosticsfile]
+
+    ins = depset(
+        direct = [manifest] + sources + classpath_resources + resources + resource_jars,
+        transitive = [compiler_classpath_jars, all_srcjars, plugins],
     )
 
-    argfile = ctx.actions.declare_file(
-        "%s_scalac_worker_input" % target_label.name,
-        sibling = output,
-    )
-
-    ctx.actions.write(
-        output = argfile,
-        content = scalac_args + optional_scalac_args,
-    )
-
-    scalac_inputs, _, scalac_input_manifests = ctx.resolve_command(
-        tools = [scalac],
-    )
-
-    outs = [output, statsfile]
-    ins = (
-        compiler_classpath_jars.to_list() + all_srcjars.to_list() + list(sources) +
-        plugins_list + internal_plugin_jars + classpath_resources + resources +
-        resource_jars + [manifest, argfile] + scalac_inputs
-    )
+    # scalac_jvm_flags passed in on the target override scalac_jvm_flags passed in on the toolchain
+    final_scalac_jvm_flags = first_non_empty(scalac_jvm_flags, toolchain.scalac_jvm_flags)
 
     # scalac_jvm_flags passed in on the target override scalac_jvm_flags passed in on the
     # toolchain
@@ -188,8 +134,7 @@ StatsfileOutput: {statsfile_output}
     ctx.actions.run(
         inputs = ins,
         outputs = outs,
-        executable = scalac.files_to_run.executable,
-        input_manifests = scalac_input_manifests,
+        executable = scalac,
         mnemonic = "Scalac",
         progress_message = "scala %s" % target_label,
         execution_requirements = {"supports-workers": "1"},
@@ -204,7 +149,31 @@ StatsfileOutput: {statsfile_output}
         arguments = [
             "--jvm_flag=%s" % f
             for f in expand_location(ctx, final_scalac_jvm_flags)
-        ] + ["@" + argfile.path],
+        ] + [args],
+    )
+
+def compile_java(ctx, source_jars, source_files, output, extra_javac_opts, providers_of_dependencies):
+    return java_common.compile(
+        ctx,
+        source_jars = source_jars,
+        source_files = source_files,
+        output = output,
+        javac_opts = expand_location(
+            ctx,
+            extra_javac_opts +
+            java_common.default_javac_opts(
+                java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+            ),
+        ),
+        deps = providers_of_dependencies,
+        #exports can be empty since the manually created provider exposes exports
+        #needs to be empty since we want the provider.compile_jars to only contain the sources ijar
+        #workaround until https://github.com/bazelbuild/bazel/issues/3528 is resolved
+        exports = [],
+        neverlink = getattr(ctx.attr, "neverlink", False),
+        java_toolchain = find_java_toolchain(ctx, ctx.attr._java_toolchain),
+        host_javabase = find_java_runtime_toolchain(ctx, ctx.attr._host_javabase),
+        strict_deps = ctx.fragments.java.strict_java_deps,
     )
 
 def runfiles_root(ctx):

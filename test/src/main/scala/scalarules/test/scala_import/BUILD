@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_import")
 load("//scala:scala.bzl", "scala_library", "scala_specs2_junit_test")
 load("//scala:scala_import.bzl", "scala_import")
+load(":scala_import_stamp_test.bzl", "scala_import_stamping_test_suite")
 
 #Many jars
 scala_import(
@@ -13,6 +14,7 @@ scala_import(
 
 scala_import(
     name = "jffi_native_external",
+    testonly = True,
     jars = [
         "@com_github_jnr_jffi_native//jar",
     ],
@@ -44,6 +46,7 @@ scala_specs2_junit_test(
 
 scala_library(
     name = "source_jar_not_oncp",
+    testonly = True,
     srcs = ["ReferCatsImplicits.scala"],
     # jvm_maven_import_external doesn't fetch source jars automatically
     deps = ["@org_typelevel__cats_core//jar"],
@@ -52,6 +55,7 @@ scala_library(
 ##Runtime deps
 scala_import(
     name = "indirection_for_transitive_runtime_deps",
+    testonly = True,
     jars = [],
     # jvm_maven_import_external doesn't fetch source jars automatically
     deps = ["@org_typelevel__cats_core//jar"],
@@ -59,6 +63,7 @@ scala_import(
 
 scala_import(
     name = "cats_and_guava_and_commons_lang_as_runtime_deps",
+    testonly = True,
     jars = [],
     runtime_deps = [
         ":guava_and_commons_lang",
@@ -112,4 +117,21 @@ scala_specs2_junit_test(
     srcs = ["ScalaImportExposesJarsTest.scala"],
     suffixes = ["Test"],
     deps = [":guava_and_commons_lang_as_exports"],
+)
+
+# test stamping of the same dep twice
+# https://github.com/bazelbuild/rules_scala/issues/1188
+scala_import(
+    name = "stamping_first_time",
+    jars = ["relate_2.11-2.1.1.jar"],
+)
+
+scala_import(
+    name = "stamping_second_time",
+    jars = ["relate_2.11-2.1.1.jar"],
+)
+
+scala_import_stamping_test_suite(
+    name = "stamping_tests",
+    jar = "relate_2.11-2.1.1.jar",
 )

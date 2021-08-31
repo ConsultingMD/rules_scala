@@ -43,13 +43,11 @@ def _thrift_library_impl(ctx):
 
         if len(found_prefixes) == 0:
             fail(
-                "could not find prefix from available prefixes: {prefixes} in the common prefix: {common_prefix}"
-                    .format(prefixes = ",".join(prefixes), common_prefix = common_prefix),
+                "could not find prefix from available prefixes: {prefixes} in the common prefix: {common_prefix}".format(prefixes = ",".join(prefixes), common_prefix = common_prefix),
             )
         elif len(found_prefixes) > 1:
             fail(
-                "Too many not prefixes found, matched: {found_prefixes} in the common prefix: {common_prefix}"
-                    .format(
+                "Too many not prefixes found, matched: {found_prefixes} in the common prefix: {common_prefix}".format(
                     found_prefixes = ",".join(found_prefixes),
                     common_prefix = common_prefix,
                 ),
@@ -93,6 +91,7 @@ rm -f {out}
             tools = [ctx.executable._zipper, zipper_arg_path],
             outputs = [ctx.outputs.libarchive],
             command = cmd,
+            mnemonic = "ScalaThriftArchive",
             progress_message = "making thrift archive %s (%s files)" %
                                (ctx.label, len(src_paths)),
         )
@@ -102,6 +101,7 @@ rm -f {out}
         ctx.actions.run_shell(
             tools = [ctx.executable._zipper],
             outputs = [ctx.outputs.libarchive],
+            mnemonic = "ScalaThriftArchive",
             command = """
 echo "empty" > {out}.contents
 rm -f {out}
@@ -162,9 +162,10 @@ thrift_library = rule(
         # This is a list of JARs which only Thrift files
         # these files WILL be compiled as part of the current target
         "external_jars": attr.label_list(allow_files = [".jar"]),
+        "compiler_args": attr.string_list(),
         "_zipper": attr.label(
             executable = True,
-            cfg = "host",
+            cfg = "exec",
             default = Label("@bazel_tools//tools/zip:zipper"),
             allow_files = True,
         ),

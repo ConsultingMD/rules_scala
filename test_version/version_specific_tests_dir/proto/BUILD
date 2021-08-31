@@ -36,24 +36,6 @@ scala_proto_library(
     deps = [":test2"],
 )
 
-java_proto_library(
-    name = "test_proto_java_lib",
-    deps = [
-        ":test2",
-        "//proto2:test",
-    ],
-)
-
-scala_proto_library(
-    name = "test_proto_java_conversions",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":test2",
-        ":test_proto_java_lib",
-        "//proto2:test",
-    ],
-)
-
 scala_proto_library(
     name = "test_proto",
     visibility = ["//visibility:public"],

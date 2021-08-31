@@ -40,6 +40,10 @@ common_attrs_for_plugin_bootstrapping = {
         default = False,
         mandatory = False,
     ),
+    "neverlink": attr.bool(
+        default = False,
+        mandatory = False,
+    ),
 }
 
 common_attrs = {}
@@ -47,9 +51,6 @@ common_attrs = {}
 common_attrs.update(common_attrs_for_plugin_bootstrapping)
 
 common_attrs.update({
-    # using stricts scala deps is done by using command line flag called 'strict_java_deps'
-    # switching mode to "on" means that ANY API change in a target's transitive dependencies will trigger a recompilation of that target,
-    # on the other hand any internal change (i.e. on code that ijar omits) WON’T trigger recompilation by transitive dependencies
     "_dependency_analyzer_plugin": attr.label(
         default = Label(
             "@io_bazel_rules_scala//third_party/dependency_analyzer/src/main:dependency_analyzer",
@@ -93,15 +94,16 @@ implicit_deps = {
     ),
     "_host_javabase": attr.label(
         default = Label("@bazel_tools//tools/jdk:current_java_runtime"),
-        cfg = "host",
+        cfg = "exec",
     ),
     "_java_runtime": attr.label(
         default = Label("@bazel_tools//tools/jdk:current_java_runtime"),
     ),
     "_scalac": attr.label(
-        default = Label(
-            "@io_bazel_rules_scala//src/java/io/bazel/rulesscala/scalac",
-        ),
+        executable = True,
+        cfg = "exec",
+        default = Label("@io_bazel_rules_scala//src/java/io/bazel/rulesscala/scalac"),
+        allow_files = True,
     ),
     "_exe": attr.label(
         executable = True,
@@ -121,7 +123,7 @@ resolve_deps = {
     "_scala_toolchain": attr.label_list(
         default = [
             Label(
-                "//external:io_bazel_rules_scala/dependency/scala/scala_library",
+                "@io_bazel_rules_scala//scala/private/toolchain_deps:scala_library_classpath",
             ),
         ],
         allow_files = False,

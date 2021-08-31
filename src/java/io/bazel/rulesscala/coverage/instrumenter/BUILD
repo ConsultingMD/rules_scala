@@ -12,10 +12,11 @@ java_binary(
     main_class = "io.bazel.rulesscala.coverage.instrumenter.JacocoInstrumenter",
     visibility = ["//visibility:public"],
     deps = [
+        "//src/java/io/bazel/rulesscala/io_utils",
+        "//src/java/io/bazel/rulesscala/jar",
+        "//src/java/io/bazel/rulesscala/worker",
         "//third_party/bazel/src/main/protobuf:worker_protocol_java_proto",
         "@bazel_tools//tools/jdk:JacocoCoverage",
-        "@io_bazel_rules_scala//src/java/io/bazel/rulesscala/jar",
-        "@io_bazel_rules_scala//src/java/io/bazel/rulesscala/worker",
     ],
 )
 

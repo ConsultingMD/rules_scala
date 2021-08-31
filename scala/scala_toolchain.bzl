@@ -1,16 +1,7 @@
 load(
     "@io_bazel_rules_scala//scala:providers.bzl",
-    _ScalacProvider = "ScalacProvider",
+    _DepsInfo = "DepsInfo",
 )
-
-def _compute_dependency_mode(input_dependency_mode, input_plus_one_deps_mode):
-    if input_plus_one_deps_mode == "on":
-        return "plus-one"
-
-    if input_dependency_mode == "":
-        return "direct"
-
-    return input_dependency_mode
 
 def _compute_strict_deps_mode(input_strict_deps_mode, dependency_mode):
     if dependency_mode == "direct":
@@ -22,37 +13,41 @@ def _compute_strict_deps_mode(input_strict_deps_mode, dependency_mode):
             return "off"
     return input_strict_deps_mode
 
-def _compute_dependency_tracking_method(input_dependency_tracking_method):
+def _compute_dependency_tracking_method(
+        dependency_mode,
+        input_dependency_tracking_method):
     if input_dependency_tracking_method == "default":
-        return "high-level"
+        if dependency_mode == "direct":
+            return "high-level"
+        else:
+            return "ast"
     return input_dependency_tracking_method
 
+def _partition_patterns(patterns):
+    includes = [
+        pattern
+        for pattern in patterns
+        if not pattern.startswith("-")
+    ]
+    excludes = [
+        pattern.lstrip("-")
+        for pattern in patterns
+        if pattern.startswith("-")
+    ]
+    return includes, excludes
+
 def _scala_toolchain_impl(ctx):
-    if ctx.attr.plus_one_deps_mode != "":
-        print(
-            "Setting plus_one_deps_mode on toolchain is deprecated." +
-            "Use 'dependency_mode = \"plus-one\"' instead",
-        )
-    if ctx.attr.dependency_mode != "" and ctx.attr.plus_one_deps_mode != "":
-        fail("Cannot set both dependency_mode and plus_one_deps_mode on toolchain")
+    dependency_mode = ctx.attr.dependency_mode
+    strict_deps_mode = _compute_strict_deps_mode(
+        ctx.attr.strict_deps_mode,
+        dependency_mode,
+    )
 
-    if ctx.fragments.java.strict_java_deps != "default" and ctx.fragments.java.strict_java_deps != "off":
-        dependency_mode = "transitive"
-        strict_deps_mode = ctx.fragments.java.strict_java_deps
-        unused_dependency_checker_mode = "off"
-        dependency_tracking_method = "high-level"
-    else:
-        dependency_mode = _compute_dependency_mode(
-            ctx.attr.dependency_mode,
-            ctx.attr.plus_one_deps_mode,
-        )
-        strict_deps_mode = _compute_strict_deps_mode(
-            ctx.attr.strict_deps_mode,
-            dependency_mode,
-        )
-
-        unused_dependency_checker_mode = ctx.attr.unused_dependency_checker_mode
-        dependency_tracking_method = _compute_dependency_tracking_method(ctx.attr.dependency_tracking_method)
+    unused_dependency_checker_mode = ctx.attr.unused_dependency_checker_mode
+    dependency_tracking_method = _compute_dependency_tracking_method(
+        dependency_mode,
+        ctx.attr.dependency_tracking_method,
+    )
 
     # Final quality checks to possibly detect buggy code above
     if dependency_mode not in ("direct", "plus-one", "transitive"):
@@ -64,16 +59,29 @@ def _scala_toolchain_impl(ctx):
     if dependency_tracking_method not in ("ast", "high-level"):
         fail("Internal error: invalid dependency_tracking_method " + dependency_tracking_method)
 
+    enable_diagnostics_report = ctx.attr.enable_diagnostics_report
+
+    all_strict_deps_patterns = ctx.attr.dependency_tracking_strict_deps_patterns
+    strict_deps_includes, strict_deps_excludes = _partition_patterns(all_strict_deps_patterns)
+
+    all_unused_deps_patterns = ctx.attr.dependency_tracking_unused_deps_patterns
+    unused_deps_includes, unused_deps_excludes = _partition_patterns(all_unused_deps_patterns)
+
     toolchain = platform_common.ToolchainInfo(
         scalacopts = ctx.attr.scalacopts,
-        scalac_provider_attr = ctx.attr.scalac_provider_attr,
+        dep_providers = ctx.attr.dep_providers,
         dependency_mode = dependency_mode,
         strict_deps_mode = strict_deps_mode,
         unused_dependency_checker_mode = unused_dependency_checker_mode,
         dependency_tracking_method = dependency_tracking_method,
-        enable_code_coverage_aspect = ctx.attr.enable_code_coverage_aspect,
+        strict_deps_include_patterns = strict_deps_includes,
+        strict_deps_exclude_patterns = strict_deps_excludes,
+        unused_deps_include_patterns = unused_deps_includes,
+        unused_deps_exclude_patterns = unused_deps_excludes,
         scalac_jvm_flags = ctx.attr.scalac_jvm_flags,
         scala_test_jvm_flags = ctx.attr.scala_test_jvm_flags,
+        enable_diagnostics_report = enable_diagnostics_report,
+        jacocorunner = ctx.attr.jacocorunner,
     )
     return [toolchain]
 
@@ -81,9 +89,23 @@ scala_toolchain = rule(
     _scala_toolchain_impl,
     attrs = {
         "scalacopts": attr.string_list(),
-        "scalac_provider_attr": attr.label(
-            default = "@io_bazel_rules_scala//scala:scalac_default",
-            providers = [_ScalacProvider],
+        "dep_providers": attr.label_list(
+            default = [
+                "@io_bazel_rules_scala//scala:scala_xml_provider",
+                "@io_bazel_rules_scala//scala:parser_combinators_provider",
+                "@io_bazel_rules_scala//scala:scala_compile_classpath_provider",
+                "@io_bazel_rules_scala//scala:scala_library_classpath_provider",
+                "@io_bazel_rules_scala//scala:scala_macro_classpath_provider",
+            ],
+            providers = [_DepsInfo],
+        ),
+        "dependency_mode": attr.string(
+            default = "direct",
+            values = ["direct", "plus-one", "transitive"],
+        ),
+        "strict_deps_mode": attr.string(
+            default = "default",
+            values = ["off", "warn", "error", "default"],
         ),
         "dependency_mode": attr.string(
             values = ["direct", "plus-one", "transitive", ""],
@@ -100,15 +122,22 @@ scala_toolchain = rule(
             default = "default",
             values = ["ast", "high-level", "default"],
         ),
-        "plus_one_deps_mode": attr.string(
-            values = ["off", "on", ""],
+        "dependency_tracking_strict_deps_patterns": attr.string_list(
+            doc = "List of target prefixes included for strict deps analysis. Exclude patetrns with '-'",
+            default = [""],
         ),
-        "enable_code_coverage_aspect": attr.string(
-            default = "off",
-            values = ["off", "on"],
+        "dependency_tracking_unused_deps_patterns": attr.string_list(
+            doc = "List of target prefixes included for unused deps analysis. Exclude patetrns with '-'",
+            default = [""],
         ),
         "scalac_jvm_flags": attr.string_list(),
         "scala_test_jvm_flags": attr.string_list(),
+        "enable_diagnostics_report": attr.bool(
+            doc = "Enable the output of structured diagnostics through the BEP",
+        ),
+        "jacocorunner": attr.label(
+            default = Label("@bazel_tools//tools/jdk:JacocoCoverage"),
+        ),
     },
     fragments = ["java"],
 )

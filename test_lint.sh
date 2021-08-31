@@ -2,4 +2,4 @@
 
 set -eou pipefail
 
-./tools/bazel run //tools:buildifier@check
+bazel run //tools:lint_check

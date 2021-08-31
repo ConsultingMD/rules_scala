@@ -57,9 +57,12 @@ _scala_test_attrs = {
     "colors": attr.bool(default = True),
     "full_stacktraces": attr.bool(default = True),
     "jvm_flags": attr.string_list(),
+    "reporter_class": attr.string(
+        default = "io.bazel.rules.scala.JUnitXmlReporter",
+    ),
     "_scalatest": attr.label(
         default = Label(
-            "//external:io_bazel_rules_scala/dependency/scalatest/scalatest",
+            "@io_bazel_rules_scala//testing/toolchain:scalatest_classpath",
         ),
     ),
     "_scalatest_runner": attr.label(
@@ -68,9 +71,6 @@ _scala_test_attrs = {
     ),
     "_scalatest_reporter": attr.label(
         default = Label("//scala/support:test_reporter"),
-    ),
-    "_jacocorunner": attr.label(
-        default = Label("@bazel_tools//tools/jdk:JacocoCoverage"),
     ),
     "_lcov_merger": attr.label(
         default = Label("@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main"),
@@ -81,10 +81,10 @@ _test_resolve_deps = {
     "_scala_toolchain": attr.label_list(
         default = [
             Label(
-                "//external:io_bazel_rules_scala/dependency/scala/scala_library",
+                "@io_bazel_rules_scala//scala/private/toolchain_deps:scala_library_classpath",
             ),
             Label(
-                "//external:io_bazel_rules_scala/dependency/scalatest/scalatest",
+                "@io_bazel_rules_scala//testing/toolchain:scalatest_classpath",
             ),
         ],
         allow_files = False,
@@ -114,6 +114,7 @@ def make_scala_test(*extras):
         ),
         test = True,
         toolchains = ["@io_bazel_rules_scala//scala:toolchain_type"],
+        incompatible_use_toolchain_transition = True,
         implementation = _scala_test_impl,
     )
 
@@ -126,6 +127,7 @@ def scala_test_suite(
         srcs = [],
         visibility = None,
         use_short_names = False,
+        tags = [],
         **kwargs):
     ts = []
     i = 0
@@ -137,7 +139,8 @@ def scala_test_suite(
             srcs = [test_file],
             visibility = visibility,
             unused_dependency_checker_mode = "off",
+            tags = tags,
             **kwargs
         )
         ts.append(n)
-    native.test_suite(name = name, tests = ts, visibility = visibility)
+    native.test_suite(name = name, tests = ts, visibility = visibility, tags = tags)
