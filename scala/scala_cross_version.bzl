@@ -23,14 +23,6 @@ def default_maven_server_urls():
         "https://jcenter.bintray.com",
     ]
 
-def default_maven_server_urls():
-    return [
-        "https://repo.maven.apache.org/maven2",
-        "https://maven-central.storage-download.googleapis.com/maven2",
-        "https://mirror.bazel.build/repo1.maven.org/maven2",
-        "https://jcenter.bintray.com",
-    ]
-
 def extract_major_version(scala_version):
     """Return major Scala version given a full version, e.g. "2.11.11" -> "2.11" """
     return scala_version[:scala_version.find(".", 2)]
