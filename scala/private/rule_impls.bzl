@@ -32,13 +32,6 @@ def first_non_empty(*args):
             return arg
     return args[-1]
 
-# Return the first non-empty arg. If all are empty, return the last.
-def first_non_empty(*args):
-    for arg in args:
-        if arg:
-            return arg
-    return args[-1]
-
 def compile_scala(
         ctx,
         target_label,
