@@ -99,10 +99,6 @@ scala_toolchain = rule(
             ],
             providers = [_DepsInfo],
         ),
-        "dependency_mode": attr.string(
-            default = "direct",
-            values = ["direct", "plus-one", "transitive"],
-        ),
         "strict_deps_mode": attr.string(
             default = "default",
             values = ["off", "warn", "error", "default"],
