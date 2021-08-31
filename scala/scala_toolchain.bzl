@@ -106,10 +106,6 @@ scala_toolchain = rule(
         "dependency_mode": attr.string(
             values = ["direct", "plus-one", "transitive", ""],
         ),
-        "strict_deps_mode": attr.string(
-            default = "default",
-            values = ["off", "warn", "error", "default"],
-        ),
         "unused_dependency_checker_mode": attr.string(
             default = "off",
             values = ["off", "warn", "error"],
